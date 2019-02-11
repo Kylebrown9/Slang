@@ -65,7 +65,7 @@ impl MacroDef {
     fn expand(&self, first: String, in_stream: &mut SimpleInput, out_stream: &mut SimpleOutput) {
         match self {
             MacroDef::Simple { substitution } => {
-
+                
             },
             MacroDef::FuncStyle  {items } => {
 

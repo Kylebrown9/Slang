@@ -1,11 +1,10 @@
-mod io_helpers;
 mod macro_def;
+
+mod io_helpers;
+use io_helpers::{ simplify_input, simplify_output };
 
 mod builder;
 use builder::build_macros;
-
-mod expander;
-use expander::expand_file;
 
 use std::fs::File;
 use std::io::{ Read, Write, Result, Error, ErrorKind, stdin, stdout };
@@ -34,7 +33,9 @@ fn run_command() -> Result<()> {
         None => Box::new(stdout())
     };
 
-    expand_file(macro_defs, in_stream, out_stream)
+    macro_defs.expand(
+        &mut simplify_input(in_stream), 
+        &mut simplify_output(out_stream))
 } 
 
 /**

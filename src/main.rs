@@ -1,11 +1,13 @@
-use std::fs::File;
-use std::io::{ Read, Write, Result, Error, ErrorKind, stdin, stdout };
+mod macro_def;
 
 mod builder;
 use builder::build_macros;
 
 mod expander;
 use expander::expand_file;
+
+use std::fs::File;
+use std::io::{ Read, Write, Result, Error, ErrorKind, stdin, stdout };
 
 extern crate clap;
 use clap::{ Arg, App };

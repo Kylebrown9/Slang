@@ -1,4 +1,5 @@
 mod macro_def;
+mod tokenizer;
 
 mod io_helpers;
 use io_helpers::{ simplify_input, simplify_output };
@@ -23,10 +24,14 @@ fn run_command() -> Result<()> {
 
     let macro_defs = build_macros(task.macro_files)?;
 
-    let in_stream: Box<Read> = match task.in_file {
+    let mut in_stream: Box<Read> = match task.in_file {
         Some(in_file) => Box::new(File::open(in_file)?),
         None => Box::new(stdin())
     };
+
+    let mut input = String::new();
+
+    let _ = in_stream.read_to_string(&mut input);
 
     let out_stream: Box<Write> = match task.out_file {
         Some(out_file) => Box::new(File::create(out_file)?),
@@ -34,7 +39,7 @@ fn run_command() -> Result<()> {
     };
 
     macro_defs.expand(
-        &mut simplify_input(in_stream), 
+        input, 
         &mut simplify_output(out_stream))
 } 
 
@@ -84,13 +89,13 @@ fn get_app() -> App<'static, 'static> {
         .arg(Arg::with_name("infile")
                 .help("The input file to macro expand")
                 .short("i")
-                .long("--input")
+                .long("input")
                 .takes_value(true)
         )
         .arg(Arg::with_name("outfile")
                 .help("The file to write the macro expanded input to")
                 .short("o")
-                .long("--output")
+                .long("output")
                 .takes_value(true)
         )
 }

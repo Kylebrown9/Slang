@@ -1,8 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{ HashMap, HashSet };
 
 use std::io::{ Result };
 
 use crate::io_helpers::{ SimpleInput, SimpleOutput };
+use crate::tokenizer::{ Tokenizer, Token };
 
 pub struct Macros {
     contents: HashMap<String, MacroDef>
@@ -15,19 +16,14 @@ impl Macros {
         }
     }
 
-    pub fn expand(&self, in_stream: &mut SimpleInput, out_stream: &mut SimpleOutput) -> Result<()> {
-        while let Some(line) = in_stream.next() {
+    pub fn add_macro(&mut self, token: String, macro_def: MacroDef) {
+        self.contents.insert(token, macro_def);
+    }
 
-            if let Some(prefix) = line.trim().split(" ").next() {
+    pub fn expand(&self, input: String, out_stream: &mut SimpleOutput) -> Result<()> {
+        let tokenizer = Tokenizer::default();
 
-                if let Some(macro_def) = self.contents.get(prefix) {
-                    macro_def.expand(line, in_stream, out_stream);
-                    continue;
-                }
-            }
-
-            out_stream.write(line);
-        };
+        let tokens: Vec<Token> = tokenizer.tokenize(&input);
 
         Ok(())
     }
@@ -62,7 +58,7 @@ enum BlockItems {
 }
 
 impl MacroDef {
-    fn expand(&self, first: String, in_stream: &mut SimpleInput, out_stream: &mut SimpleOutput) {
+    fn expand(&self, tokens: &[Token], out_stream: &mut SimpleOutput) {
         match self {
             MacroDef::Simple { substitution } => {
                 

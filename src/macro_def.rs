@@ -1,8 +1,8 @@
-use std::collections::{ HashMap, HashSet };
+use std::collections::{ HashMap };
 
 use std::io::{ Result };
 
-use crate::io_helpers::{ SimpleInput, SimpleOutput };
+use crate::io_helpers::{ SimpleOutput };
 use crate::tokenizer::{ Tokenizer, Token };
 
 pub struct Macros {
@@ -24,6 +24,19 @@ impl Macros {
         let tokenizer = Tokenizer::default();
 
         let tokens: Vec<Token> = tokenizer.tokenize(&input);
+
+        let mut remaining = &tokens[..];
+
+        while !remaining.is_empty() {
+            let current_token = &remaining[0];
+
+            if let Some(macro_def) = self.contents.get(current_token.value) {
+                remaining = macro_def.expand(remaining, out_stream);
+            } else {
+                out_stream.write(current_token.value);
+                out_stream.write(current_token.suffix);
+            }
+        }
 
         Ok(())
     }
@@ -58,7 +71,7 @@ enum BlockItems {
 }
 
 impl MacroDef {
-    fn expand(&self, tokens: &[Token], out_stream: &mut SimpleOutput) {
+    fn expand<'a>(&self, tokens: &'a [Token<'a>], out_stream: &mut SimpleOutput) -> &'a [Token<'a>] {
         match self {
             MacroDef::Simple { substitution } => {
                 
@@ -70,5 +83,7 @@ impl MacroDef {
                 
             }
         }
+
+        tokens //TODO make represent actual remaining
     }
 }

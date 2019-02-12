@@ -1,30 +1,21 @@
-use std::io::{ Read, BufRead, BufReader, Write };
+use std::io::{ Write, Read, stdin };
+use std::fs::{ File };
 
-pub type SimpleInput = Box<Iterator<Item=String>>;
+pub fn file_to_string(file: File) -> String {
+    let mut file_m = file;
+    let mut data = String::new();
 
-pub struct BufReadIter<r>
-    where r: BufRead {
+    file_m.read_to_string(&mut data);
 
-    bufreader: r
+    data
 }
 
-pub fn simplify_input(reader: Box<Read>) -> SimpleInput {
-    Box::new(BufReadIter {
-        bufreader: BufReader::new(reader)
-    })
-}
+pub fn stdio_to_string() -> String {
+    let mut data = String::new();
 
-impl<r: BufRead> Iterator for BufReadIter<r> {
-    type Item = String;
+    stdin().read_to_string(&mut data);
 
-    fn next(&mut self) -> Option<String> {
-        let mut result = String::new();
-
-        match self.bufreader.read_line(&mut result) {
-            Ok(_) => Some(result),
-            Err(_) => None
-        }
-    }
+    data
 }
 
 pub struct SimpleOutput {
@@ -33,10 +24,8 @@ pub struct SimpleOutput {
 
 impl SimpleOutput {
 
-    pub fn write(&mut self, line: String) {
-        let with_ln = line + "\n";
-
-        self.contents.write(with_ln.as_bytes());
+    pub fn write(&mut self, val: &str) {
+        self.contents.write(val.as_bytes());
     }
 }
 

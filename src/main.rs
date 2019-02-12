@@ -2,13 +2,13 @@ mod macro_def;
 mod tokenizer;
 
 mod io_helpers;
-use io_helpers::{ simplify_input, simplify_output };
+use io_helpers::{ simplify_output, file_to_string, stdio_to_string };
 
 mod builder;
 use builder::build_macros;
 
 use std::fs::File;
-use std::io::{ Read, Write, Result, Error, ErrorKind, stdin, stdout };
+use std::io::{ Write, Result, Error, ErrorKind, stdout };
 
 extern crate clap;
 use clap::{ Arg, App };
@@ -24,14 +24,10 @@ fn run_command() -> Result<()> {
 
     let macro_defs = build_macros(task.macro_files)?;
 
-    let mut in_stream: Box<Read> = match task.in_file {
-        Some(in_file) => Box::new(File::open(in_file)?),
-        None => Box::new(stdin())
+    let input = match task.in_file {
+        Some(in_file) => file_to_string(File::open(in_file)?),
+        None => stdio_to_string()
     };
-
-    let mut input = String::new();
-
-    let _ = in_stream.read_to_string(&mut input);
 
     let out_stream: Box<Write> = match task.out_file {
         Some(out_file) => Box::new(File::create(out_file)?),

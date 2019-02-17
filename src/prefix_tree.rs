@@ -2,132 +2,187 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 trait Trie<K, V> {
-    fn new() -> Self;
+    type View<'a>: TrieView<'a, K, V>;
 
-    fn get(&self, path: &[K]) -> Option<V>;
+    fn insert(&mut self, path: &[K], new_val: V) -> bool;
+    
+    fn get(&self, path: &[K]) -> Option<&V>;
 
-    fn insert(&mut self, path: &[K], new_val: V) -> Option<V>;
+    fn as_view<'a>(&'a self) -> Self::View<'a>;
+}
+
+trait TrieView<'a, K, V> 
+    where Self: Sized {
+
+    fn value(&self) -> Option<&V>;
+
+    fn get(&self, key: K) -> Option<Self>;
 }
 
 enum HashTrie<K, V> {
-    Branch {
-        map: HashMap<K, HashTrie<K, V>>,
-        value: Option<V>
+    Empty,
+    
+    Trivial {
+        value: V
     },
-    PathCompressed {
-        path: Vec<K>,
-        next: Box<HashTrie<K, V>>
+
+    Standard {
+        map: HashMap<(u32, K), HashTrieNode<V>>,
+        next_id: u32
+    }   
+}
+
+enum HashTrieNode<V> {
+    Branch {
+        id: u32
     },
     Leaf {
         value: V
-    },
-    Empty
+    }
 }
 
-impl<K, V> Trie<K, V> for HashTrie<K, V> 
+struct HashTrieView<'a, K, V> {
+    trie: &'a HashTrie<K, V>,
+    node: &'a HashTrieNode<V>
+}
+
+impl<K, V> HashTrie<K, V>  
     where K: Eq + Hash + Clone {
 
     fn new() -> Self {
-        HashTrie::Branch {
+        HashTrie::Standard {
             map: HashMap::new(),
-            value: None
+            next_id: 1
         }
     }
+}
 
-    fn get(&self, key: &[K]) -> Option<V> {
+impl<K, V> Trie<K, V> for HashTrie<K, V>
+    where K: Hash + Eq {
+
+    // type View<'a> = HashTrieView<'a, K, V>;
+
+    fn insert(&mut self, path: &[K], new_val: V) -> bool {
         match self {
-            HashTrie::Branch { map, value } => {
-                if let Some(k) = key.get(0) {
-                    if let Some(node) = map.get(k) {
-                        node.get(&key[1..])
-                    } else {
-                        None
-                    }
-                } else {
-                    *value
-                }
-            },
-
-            HashTrie::PathCompressed { path, next } => {
-                if &key[ .. path.len() ] == &path[ .. ] {
-                    next.get(&key[ path.len() .. ])
-                } else {
-                    None
-                }
-            },
-
-            HashTrie::Leaf { value } => {
-                if key.is_empty() {
-                    Some(*value)
-                } else {
-                    None
-                }
-            },
-
             HashTrie::Empty => {
-                None
-            }
-        }
-    }
-
-    fn insert(&mut self, path: &[K], new_val: V) -> Option<V> {
-        match self {
-            HashTrie::Branch { map, value } => {
-                //When the path has a first value
-                if let Some(k) = path.get(0) {
-
-                    //When the first path value has a Trie
-                    if let Some(node) = map.get(k) {
-                        node.insert(&path[1..], new_val)
-                    } 
-                    
-                    //When the first path value is not assigned
-                    else {
-                        match path.len() {
-                            1 => {
-                                map.insert(*k, HashTrie::Leaf { value: new_val });
-                            },
-                            _ => {
-                                map.insert(*k, HashTrie::PathCompressed {
-                                    path: Vec::from(&path[ 1 .. ]),
-                                    next: Box::new(HashTrie::Leaf { value: new_val })
-                                });
-                            }
-                        }
-                        None
-                    }
-                } 
-                //When the path is empty
-                else {
-                    let old_val = *value;
-                    *value = Some(new_val);
-                    old_val
-                }
-            },
-
-            HashTrie::PathCompressed { path, next } => {
-                if &path[ .. path.len() ] == &path[ .. ] {
-                    next.insert(&path[ path.len() .. ], new_val)
-                } else {
-                    None //TODO
-                }
-            },
-
-            HashTrie::Leaf { value } => {
-                *self = HashTrie::Branch {
-                    map: HashMap::new(),
-                    value: Some(*value)
-                };
-                
-                self.insert(path, new_val)
-            },
-
-            HashTrie::Empty => {
-                *self = HashTrie::Leaf {
+                *self = HashTrie::Trivial {
                     value: new_val
                 };
+                true
+            },
+
+            HashTrie::Trivial { value } => {
+                false
+            },
+
+            HashTrie::Standard { map, next_id } => insert_into_map(map, next_id, path, new_val)
+        }
+    }
+
+    fn get(&self, path: &[K]) -> Option<&V> {
+        match self {
+            HashTrie::Empty => {
                 None
+            },
+
+            HashTrie::Trivial { value } => {
+                if path.is_empty() {
+                    Some(&value)
+                } else {
+                    None
+                }
+            },
+
+            HashTrie::Standard { map, next_id } => get_from_map(map, path)
+        }
+    }
+
+    // fn as_view<'a>(&'a self) -> Self::View<'a> {
+    //     HashTrieView {
+    //         trie: &self,
+    //         id: 0
+    //     }
+    // }
+}
+
+fn get_from_map<'a,K,V>(map: &'a HashMap<(u32, K), HashTrieNode<V>>, path: &[K]) -> Option<&'a V> 
+        where K: Hash + Eq {
+
+    if path.is_empty() {
+        return None;
+    }
+
+    let last_index = path.len()-1;
+    let body = &path[ .. last_index ];
+    let tail = path[last_index];
+
+    let mut current = 0;
+
+    for k in body {
+        match map.get(&(current, *k)) {
+            Some( HashTrieNode::Branch { id } ) => {
+                current = *id;
+            },
+            Some( HashTrieNode::Leaf { value} ) => {
+                return None;
+            },
+            None => {
+                return None;
             }
         }
+    }
+
+    if let Some( HashTrieNode::Leaf { value } ) = map.get(&(current, tail)) {
+        Some(&value)
+    } else {
+        None
+    }
+}
+
+fn insert_into_map<'a, K, V>(
+            map: &'a mut HashMap<(u32, K), HashTrieNode<V>>, 
+            next_id: &'a mut u32,
+            path: &[K],
+            new_val: V
+        ) -> bool    
+        where K: Hash + Eq {
+
+    let last_index = path.len()-1;
+    let body = &path[ .. last_index ];
+    let tail = path[last_index];
+
+    let mut current = 0;
+
+    for k in body {
+        match map.get(&(current, *k)) {
+            Some( HashTrieNode::Branch { id } ) => {
+                current = *id;
+            },
+            Some( HashTrieNode::Leaf { value} ) => {
+                return false;
+            },
+            None => {
+                map.insert( 
+                    (current, *k),
+                    HashTrieNode::Branch {
+                        id: *next_id
+                    }
+                );
+                current = *next_id;
+                *next_id += 1;
+
+                break;
+            }
+        }
+    }
+
+    if !map.contains_key(&(current, tail)) {
+        map.insert(
+            (current, tail), 
+            HashTrieNode::Leaf { value: new_val }
+        );
+        true
+    } else {
+        false
     }
 }

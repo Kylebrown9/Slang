@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 
-use super::Trie;
-use super::view::{ TrieView, TrieViewable };
+use super::{ Trie, TrieView, TrieViewable };
 
 enum HashTrie<K, V> {
     Empty,
@@ -172,7 +171,7 @@ struct HashTrieView<'a, K, V> {
 impl<'a, K, V> TrieView<'a, K, V> for HashTrieView<'a, K, V> 
     where K: Eq + Hash {
 
-    fn value(&self) -> Option<&V> {
+    fn value(&self) -> Option<&'a V> {
         match self {
             HashTrieView { 
                 trie, 
@@ -197,10 +196,12 @@ impl<'a, K, V> TrieView<'a, K, V> for HashTrieView<'a, K, V>
 }
 
 impl<'a, K, V> TrieViewable<'a, K, V> for HashTrie<K, V>
-    where K: 'a + Eq + Hash, V: 'a {
+    where K: 'static + Eq + Hash, 
+        V: 'static {
+
     type View = HashTrieView<'a, K, V>;
 
-    fn as_view(&self) -> HashTrieView<'a, K, V> {
+    fn as_view(&'a self) -> HashTrieView<'a, K, V> {
         HashTrieView {
             trie: self,
             node: &HashTrieNode::Branch {

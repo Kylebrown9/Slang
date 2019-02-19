@@ -1,7 +1,6 @@
 use std::collections::{ HashSet };
 
 /**
- * Defines Tokenizing behavior
  * The singletons set indicates what characters should always be a token by themselves
  * The separators set indicates what characters indicate the boundary between tokens
  */
@@ -10,7 +9,7 @@ pub struct Tokenizer {
     separators: HashSet<char>
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub struct Token<'a> {
     pub value: &'a str,
     pub suffix: &'a str
@@ -29,7 +28,7 @@ impl Tokenizer {
     }
 
     pub fn default() -> Self {
-        let singletons: HashSet<char> = ['[', ']', '{', '}', '(', ')', ',', ':'].iter().cloned().collect();
+        let singletons: HashSet<char> = ['[', ']', '{', '}', '(', ')', ',', ':', '#'].iter().cloned().collect();
         let separators: HashSet<char> = [' ', '\n', '\r', '\t'].iter().cloned().collect();
 
         Tokenizer::new(singletons, separators)

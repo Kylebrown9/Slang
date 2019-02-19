@@ -188,10 +188,10 @@ pub struct HashTrieView<'a, K, V> {
     node: &'a HashTrieNode<V>
 }
 
-impl<'a, K, V> TrieView<'a, K, V> for HashTrieView<'a, K, V> 
+impl<K, V> TrieView<K, V> for HashTrieView<'_, K, V> 
     where K: Eq + Hash {
 
-    fn value(&self) -> Option<&'a V> {
+    fn value(&self) -> Option<&V> {
         match self {
             HashTrieView { 
                 trie, 
@@ -221,7 +221,7 @@ impl<'a, K, V> TrieViewable<'a, K, V> for HashTrie<K, V>
 
     type View = HashTrieView<'a, K, V>;
 
-    fn as_view(&'a self) -> HashTrieView<'a, K, V> {
+    fn as_view(&self) -> HashTrieView<'_, K, V> {
         HashTrieView {
             trie: self,
             node: &HashTrieNode::Branch {

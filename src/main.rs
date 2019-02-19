@@ -9,6 +9,8 @@ use io_helpers::{ simplify_output, file_to_string, stdio_to_string };
 mod builder;
 use builder::build_macros;
 
+mod trie;
+
 use std::fs::File;
 use std::io::{ Write, Result, Error, ErrorKind, stdout };
 

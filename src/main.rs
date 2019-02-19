@@ -1,5 +1,7 @@
+mod trie;
 mod macro_def;
 mod tokenizer;
+use tokenizer::Tokenizer;
 
 mod io_helpers;
 use io_helpers::{ simplify_output, file_to_string, stdio_to_string };
@@ -22,7 +24,9 @@ fn main() {
 fn run_command() -> Result<()> {
     let task = get_task()?;
 
-    let macro_defs = build_macros(task.macro_files)?;
+    let tokenizer = Tokenizer::default();
+
+    let macro_defs = build_macros(tokenizer, task.macro_files)?;
 
     let input = match task.in_file {
         Some(in_file) => file_to_string(File::open(in_file)?),
@@ -34,8 +38,8 @@ fn run_command() -> Result<()> {
         None => Box::new(stdout())
     };
 
-    macro_defs.expand(
-        input, 
+    macro_defs.expand_tokens(
+        &tokenizer.tokenize(&input), 
         &mut simplify_output(out_stream))
 } 
 

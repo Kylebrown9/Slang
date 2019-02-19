@@ -3,87 +3,67 @@ use std::collections::{ HashMap };
 use std::io::{ Result };
 
 use crate::io_helpers::{ SimpleOutput };
-use crate::tokenizer::{ Tokenizer, Token };
+use crate::tokenizer::{ Token };
+
+use crate::trie::{ Trie, TrieView, TrieViewable };
+use crate::trie::hash::{ HashTrie, HashTrieView };
 
 pub struct Macros {
-    contents: HashMap<String, MacroDef>
+    contents: HashTrie<PatternItem, Vec<TemplateItem>>
+}
+
+#[derive(Hash, Eq, PartialEq, Clone)]
+enum PatternItem {
+    Var,
+
+    Token {
+        value: String
+    },
+
+    BlockVar {
+        block_delim: BlockDelimiter
+    }
+}
+
+#[derive(Hash, Eq, PartialEq, Clone)]
+enum BlockDelimiter {
+    SquareBracket,
+    CurlyBracket,
+    Parenthesis
+}
+
+#[derive(Hash, Eq, PartialEq, Clone)]
+enum TemplateItem {
+    Text {
+        data: String
+    },
+    Var {
+        index: u8
+    }
 }
 
 impl Macros {
     pub fn new() -> Self {
         Macros {
-            contents: HashMap::new()
+            contents: HashTrie::new()
         }
     }
 
-    pub fn add_macro(&mut self, token: String, macro_def: MacroDef) {
-        self.contents.insert(token, macro_def);
+    pub fn read_macros(&mut self, tokens: &[Token]) {
+
     }
 
-    pub fn expand(&self, input: String, out_stream: &mut SimpleOutput) -> Result<()> {
-        let tokenizer = Tokenizer::default();
+    fn read_macro(&mut self, tokens: &[Token]) {
 
-        let tokens: Vec<Token> = tokenizer.tokenize(&input);
+    }
 
-        let mut remaining = &tokens[..];
+    pub fn expand_tokens(&self, input: &[Token], out_stream: &mut SimpleOutput) -> Result<()> {
+        let trie_root = self.contents.as_view();
 
-        while !remaining.is_empty() {
-            let current_token = &remaining[0];
+        let mut remaining = input;
 
-            if let Some(macro_def) = self.contents.get(current_token.value) {
-                remaining = macro_def.expand(remaining, out_stream);
-            } else {
-                out_stream.write(current_token.value);
-                out_stream.write(current_token.suffix);
-            }
-        }
+        //TODO
 
         Ok(())
-    }
-}
-
-pub enum MacroDef {
-    Simple {
-        substitution: String
-    },
-    FuncStyle {
-        items: Vec<FuncItems>
-    },
-    BlockStyle {
-        items: Vec<BlockItems>
-    }
-}
-
-enum FuncItems {
-    Arg {
-        index: u8
-    },
-    Text {
-        data: String
-    }
-}
-
-enum BlockItems {
-    Block,
-    Text {
-        data: String
-    }
-}
-
-impl MacroDef {
-    fn expand<'a>(&self, tokens: &'a [Token<'a>], out_stream: &mut SimpleOutput) -> &'a [Token<'a>] {
-        match self {
-            MacroDef::Simple { substitution } => {
-                
-            },
-            MacroDef::FuncStyle  {items } => {
-
-            },
-            MacroDef::BlockStyle  {items } => {
-                
-            }
-        }
-
-        tokens //TODO make represent actual remaining
     }
 }

@@ -1,19 +1,32 @@
 pub mod hash;
 
+use std::borrow::Borrow;
+
 /**
- * The Base Trie API
+ * The Trie trait represents a mapping from
+ * a sequence of key elements to a single value.
  * 
- * Tri 
+ * This mapping can be used similarly to HashMap
+ * and provides get(&self) and insert(&mut self, T, V) support.
+ * 
+ * No key element sequence can be the prefix of any other
+ * This must be enforced by implementors to disambiguate parsing
  */
 pub trait Trie<K, V> {
-    fn insert(&mut self, path: &[K], new_val: V) -> bool;
+    fn insert<T>(&mut self, path: T, new_val: V) -> bool
+        where T: IntoIterator<Item=K>;
     
-    fn get(&self, path: &[K]) -> Option<&V>;
+    fn get<T>(&self, path: T) -> Option<&V>
+        where
+            T: IntoIterator, 
+            K: Borrow<T::Item>;
 }
 
 /**
- * A TrieView represents a read only view of a trie node
- * It may optionally have a value
+ * The TrieView trait represents a read only view
+ * of a Trie node. 
+ * 
+ * 
  */
 pub trait TrieView<'a, K, V>: Sized {
     fn value(&self) -> Option<&'a V>;

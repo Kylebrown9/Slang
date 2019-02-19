@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::borrow::Borrow;
 
 use super::{ Trie, TrieView, TrieViewable };
 
-enum HashTrie<K, V> {
+pub enum HashTrie<K, V> {
     Empty,
     
     Trivial {
@@ -11,10 +12,12 @@ enum HashTrie<K, V> {
     },
 
     Standard {
-        map: HashMap<(u32, K), HashTrieNode<V>>,
+        map: HashTrieMap<K, V>,
         next_id: u32
     }   
 }
+
+type HashTrieMap<K, V> = HashMap<(u32, K), HashTrieNode<V>>;
 
 enum HashTrieNode<V> {
     Branch {
@@ -29,21 +32,24 @@ enum HashTrieNode<V> {
 impl<K, V> HashTrie<K, V>  
     where K: Eq + Hash + Clone {
 
-    fn new() -> Self {
-        HashTrie::Standard {
-            map: HashMap::new(),
-            next_id: 1
-        }
+    pub fn new() -> Self {
+        HashTrie::Empty
     }
 }
 
 impl<K, V> Trie<K, V> for HashTrie<K, V>
     where K: Hash + Eq {
 
-    fn insert(&mut self, path: &[K], new_val: V) -> bool {
+    fn insert<T>(&mut self, path: T, new_val: V) -> bool 
+            where T: IntoIterator<Item=K> {
+
         match self {
             HashTrie::Empty => {
-                if path.is_empty() {
+                let path_iter = path.into_iter();
+
+                let path_empty = ( path_iter.count() == 0 );
+
+                if path_empty {
                     *self = HashTrie::Trivial {
                         value: new_val
                     };
@@ -60,12 +66,20 @@ impl<K, V> Trie<K, V> for HashTrie<K, V>
         }
     }
 
-    fn get(&self, path: &[K]) -> Option<&V> {
+    fn get<T>(&self, path: T) -> Option<&V>
+        where
+            T: IntoIterator, 
+            K: Borrow<T::Item> {
+
         match self {
             HashTrie::Empty => None,
 
             HashTrie::Trivial { value } => {
-                if path.is_empty() {
+                let path_iter = path.into_iter();
+
+                let path_empty = ( path_iter.count() == 0 );
+
+                if path_empty {
                     Some(&value)
                 } else {
                     None
@@ -78,47 +92,15 @@ impl<K, V> Trie<K, V> for HashTrie<K, V>
     }
 }
 
-fn get_from_map<'a, K, V>(map: &'a HashMap<(u32, K), HashTrieNode<V>>, path: &[K]) -> Option<&'a V> 
-        where K: Hash + Eq {
-
-    if path.is_empty() {
-        return None;
-    }
-
-    let last_index = path.len()-1;
-    let body = &path[ .. last_index ];
-    let tail = path[last_index];
-
-    let mut current = 0;
-
-    for k in body {
-        match map.get(&(current, *k)) {
-            Some( HashTrieNode::Branch { id } ) => {
-                current = *id;
-            },
-            Some( HashTrieNode::Leaf { value} ) => {
-                return None;
-            },
-            None => {
-                return None;
-            }
-        }
-    }
-
-    if let Some( HashTrieNode::Leaf { value } ) = map.get(&(current, tail)) {
-        Some(&value)
-    } else {
-        None
-    }
-}
-
-fn insert_into_map<'a, K, V>(
+fn insert_into_map<'a, K, V, T>(
             map: &'a mut HashMap<(u32, K), HashTrieNode<V>>, 
             next_id: &'a mut u32,
-            path: &[K],
+            path: T,
             new_val: V
         ) -> bool    
-        where K: Hash + Eq {
+        where 
+            K: Hash + Eq,
+            T: IntoIterator<Item=K> {
 
     let last_index = path.len()-1;
     let body = &path[ .. last_index ];
@@ -163,7 +145,45 @@ fn insert_into_map<'a, K, V>(
     }
 }
 
-struct HashTrieView<'a, K, V> {
+fn get_from_map<'a, K, V, T>(
+            map: &'a HashTrieMap<K, V>, 
+            path: T) -> Option<&'a V> 
+        where 
+            K: Hash + Eq + Borrow<T::Item>,
+            T: IntoIterator {
+
+    if path.is_empty() {
+        return None;
+    }
+
+    let last_index = path.len()-1;
+    let body = &path[ .. last_index ];
+    let tail = path[last_index];
+
+    let mut current = 0;
+
+    for k in body {
+        match map.get(&(current, *k)) {
+            Some( HashTrieNode::Branch { id } ) => {
+                current = *id;
+            },
+            Some( HashTrieNode::Leaf { value} ) => {
+                return None;
+            },
+            None => {
+                return None;
+            }
+        }
+    }
+
+    if let Some( HashTrieNode::Leaf { value } ) = map.get(&(current, tail)) {
+        Some(&value)
+    } else {
+        None
+    }
+}
+
+pub struct HashTrieView<'a, K, V> {
     trie: &'a HashTrie<K, V>,
     node: &'a HashTrieNode<V>
 }
@@ -209,4 +229,9 @@ impl<'a, K, V> TrieViewable<'a, K, V> for HashTrie<K, V>
             }
         }
     }
+}
+
+#[cfg(test)]
+mod test {
+
 }

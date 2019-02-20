@@ -10,7 +10,7 @@ pub trait Trie<K, V>: Sized {
 
     fn as_view(self) -> Self::View;
     
-    fn get<T>(self, path: T) -> Self::View
+    fn get<T>(self, path: T) -> Option<Self::View>
         where
             T: IntoIterator<Item=K> {
 
@@ -19,11 +19,13 @@ pub trait Trie<K, V>: Sized {
         for key in path {
             view = match view.descend(key) {
                 Some(view) => view,
-                None => break
+                None => { 
+                    return None;
+                }
             };
         }
 
-        view
+        Some(view)
     }
 }
 

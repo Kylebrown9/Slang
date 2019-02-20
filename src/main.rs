@@ -29,8 +29,8 @@ fn run_command() -> Result<()> {
     let macro_defs = build_macros(&tokenizer, task.macro_files)?;
 
     let input = match task.in_file {
-        Some(in_file) => file_to_string(File::open(in_file)?),
-        None => stdio_to_string()
+        Some(in_file) => file_to_string(File::open(in_file)?)?,
+        None => stdio_to_string()?
     };
 
     let out_stream: Box<Write> = match task.out_file {

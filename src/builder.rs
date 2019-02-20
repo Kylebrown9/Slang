@@ -19,7 +19,7 @@ fn read_macros(macros: &mut Macros, tokenizer: &Tokenizer, file_name: String) ->
 
     let mut file_data = String::new();
 
-    file.read_to_string(&mut file_data);
+    file.read_to_string(&mut file_data)?;
 
     let tokens = tokenizer.tokenize(&file_data);
 

@@ -1,21 +1,21 @@
-use std::io::{ Write, Read, stdin };
+use std::io::{ Result, Write, Read, stdin };
 use std::fs::{ File };
 
-pub fn file_to_string(file: File) -> String {
+pub fn file_to_string(file: File) -> Result<String> {
     let mut file_m = file;
     let mut data = String::new();
 
-    file_m.read_to_string(&mut data);
+    file_m.read_to_string(&mut data)?;
 
-    data
+    Ok(data)
 }
 
-pub fn stdio_to_string() -> String {
+pub fn stdio_to_string() -> Result<String> {
     let mut data = String::new();
 
-    stdin().read_to_string(&mut data);
+    stdin().read_to_string(&mut data)?;
 
-    data
+    Ok(data)
 }
 
 pub struct SimpleOutput {
@@ -23,9 +23,10 @@ pub struct SimpleOutput {
 }
 
 impl SimpleOutput {
+    pub fn write(&mut self, val: &str) -> Result<()> {
+        self.contents.write(val.as_bytes())?;
 
-    pub fn write(&mut self, val: &str) {
-        self.contents.write(val.as_bytes());
+        Ok(())
     }
 }
 

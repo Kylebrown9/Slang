@@ -1,15 +1,13 @@
-use std::collections::{ HashMap };
-
 use std::io::{ Result };
 
 use crate::io_helpers::{ SimpleOutput };
 use crate::tokenizer::{ Token };
 
-use crate::trie::{ Trie, TrieView, TrieViewable };
-use crate::trie::hash::{ HashTrie, HashTrieView };
+use crate::trie::{ Trie };
+use crate::trie::hash::{ HashTrie };
 
 pub struct Macros {
-    contents: HashTrie<PatternItem, Vec<TemplateItem>>
+    contents: HashTrie<PatternItem, Template>
 }
 
 #[derive(Hash, Eq, PartialEq, Clone)]
@@ -32,6 +30,8 @@ enum BlockDelimiter {
     Parenthesis
 }
 
+type Template = Vec<TemplateItem>;
+
 #[derive(Hash, Eq, PartialEq, Clone)]
 enum TemplateItem {
     Text {
@@ -50,11 +50,11 @@ impl Macros {
     }
 
     pub fn read_macros(&mut self, tokens: &[Token]) {
-
+        //TODO implement
     }
 
     fn read_macro(&mut self, tokens: &[Token]) {
-
+        //TODO implement
     }
 
     pub fn expand_tokens(&self, input: &[Token], out_stream: &mut SimpleOutput) -> Result<()> {
@@ -62,7 +62,7 @@ impl Macros {
 
         let mut remaining = input;
 
-        //TODO
+        //TODO implement
 
         Ok(())
     }

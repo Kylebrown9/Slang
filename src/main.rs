@@ -9,8 +9,6 @@ use io_helpers::{ simplify_output, file_to_string, stdio_to_string };
 mod builder;
 use builder::build_macros;
 
-mod trie;
-
 use std::fs::File;
 use std::io::{ Write, Result, Error, ErrorKind, stdout };
 
@@ -28,7 +26,7 @@ fn run_command() -> Result<()> {
 
     let tokenizer = Tokenizer::default();
 
-    let macro_defs = build_macros(tokenizer, task.macro_files)?;
+    let macro_defs = build_macros(&tokenizer, task.macro_files)?;
 
     let input = match task.in_file {
         Some(in_file) => file_to_string(File::open(in_file)?),

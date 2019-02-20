@@ -22,16 +22,18 @@ impl<'a> Token<'a> {
     }
 }
 
-impl Tokenizer {
-    pub fn new(singletons: HashSet<char>, separators: HashSet<char>) -> Self {
-        Tokenizer { singletons, separators }
-    }
-
-    pub fn default() -> Self {
+impl Default for Tokenizer {
+    fn default() -> Self {
         let singletons: HashSet<char> = ['[', ']', '{', '}', '(', ')', ',', ':', '#'].iter().cloned().collect();
         let separators: HashSet<char> = [' ', '\n', '\r', '\t'].iter().cloned().collect();
 
         Tokenizer::new(singletons, separators)
+    }
+}
+
+impl Tokenizer {
+    pub fn new(singletons: HashSet<char>, separators: HashSet<char>) -> Self {
+        Tokenizer { singletons, separators }
     }
 
     pub fn tokenize<'a>(&self, input: &'a str) -> Vec<Token<'a>> {

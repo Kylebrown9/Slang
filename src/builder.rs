@@ -4,7 +4,7 @@ use std::fs::File;
 use crate::tokenizer::Tokenizer;
 use crate::macro_def::{ Macros };
 
-pub fn build_macros(tokenizer: Tokenizer, macro_files: Vec<String>) -> Result<Macros> {
+pub fn build_macros(tokenizer: &Tokenizer, macro_files: Vec<String>) -> Result<Macros> {
     let mut macros = Macros::new();
 
     for file_name in macro_files {
@@ -14,7 +14,7 @@ pub fn build_macros(tokenizer: Tokenizer, macro_files: Vec<String>) -> Result<Ma
     Ok(macros)
 }
 
-fn read_macros(macros: &mut Macros, tokenizer: Tokenizer, file_name: String) -> Result<()>{
+fn read_macros(macros: &mut Macros, tokenizer: &Tokenizer, file_name: String) -> Result<()>{
     let mut file = File::open(file_name)?;
 
     let mut file_data = String::new();

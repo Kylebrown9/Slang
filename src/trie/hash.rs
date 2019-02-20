@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 
-use super::{ Trie, TrieView, TrieViewMut };
+use super::{ Trie, TrieMut, TrieView, TrieViewMut };
 
 pub enum HashTrie<K, V> {
     Trivial {
@@ -12,6 +12,18 @@ pub enum HashTrie<K, V> {
         map: HashTrieMap<K, V>,
         next_id: u32
     }   
+}
+
+impl<K, V> HashTrie<K, V>
+    where 
+        K: Hash + Eq + Clone {
+    
+    pub fn new() -> Self {
+        HashTrie::Standard {
+            map: HashMap::new(),
+            next_id: 1
+        }
+    }
 }
 
 pub type HashTrieMap<K, V> = HashMap<(u32, K), HashTrieNode<V>>;
@@ -26,29 +38,41 @@ pub enum HashTrieNode<V> {
     }
 }
 
-impl<'a, K, V> Trie<'a, K, V> for HashTrie<K, V>
+impl<'a, K, V> Trie<K, V> for &'a HashTrie<K, V>
     where 
-        K: 'a + Hash + Eq + Clone,
-        V: 'a {
+        K: Hash + Eq + Clone {
 
-    type ViewMut = HashTrieViewMut<'a, K, V>;
     type View = HashTrieView<'a, K, V>;
 
-    fn new() -> Self {
-        HashTrie::Standard {
-            map: HashMap::new(),
-            next_id: 1
-        }
-    }
-
-    fn as_view(&self) -> HashTrieView<'_, K, V> {
+    fn as_view(self) -> HashTrieView<'a, K, V> {
         HashTrieView {
             trie: self,
             node: None
         }
     }
+}
 
-    fn as_view_mut(&mut self) -> HashTrieViewMut<'_, K, V> {
+impl<'a, K, V> Trie<K, V> for &'a mut HashTrie<K, V>
+    where 
+        K: Hash + Eq + Clone {
+
+    type View = HashTrieView<'a, K, V>;
+
+    fn as_view(self) -> HashTrieView<'a, K, V> {
+        HashTrieView {
+            trie: self,
+            node: None
+        }
+    }
+}
+
+impl<'a, K, V> TrieMut<K, V> for &'a mut HashTrie<K, V>
+    where 
+        K: Hash + Eq + Clone {
+
+    type ViewMut = HashTrieViewMut<'a, K, V>;
+
+    fn as_view_mut(self) -> HashTrieViewMut<'a, K, V> {
         HashTrieViewMut {
             trie: self,
             node: None
@@ -61,10 +85,10 @@ pub struct HashTrieView<'a, K, V> {
     node: Option<(u32, K)>
 }
 
-impl<'a, K, V> TrieView<'a, K, V> for HashTrieView<'a, K, V> 
+impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V> 
     where K: Eq + Hash + Clone {
 
-    fn value(&'a self) -> Option<&'a V> {
+    fn value(&self) -> Option<&V> {
         match self {
             HashTrieView {
                 trie: HashTrie::Trivial {
@@ -76,7 +100,7 @@ impl<'a, K, V> TrieView<'a, K, V> for HashTrieView<'a, K, V>
             },
 
             HashTrieView {
-                trie: HashTrie::Standard { map, next_id: _ },
+                trie: HashTrie::Standard { map, .. },
                 node: Some(node_value)
             } => {
                 if let Some(HashTrieNode::Leaf { value }) = map.get(node_value) {
@@ -90,10 +114,10 @@ impl<'a, K, V> TrieView<'a, K, V> for HashTrieView<'a, K, V>
         }
     }
 
-    fn descend(&'a self, key: K) -> Option<Self> {
+    fn descend(&self, key: K) -> Option<Self> {
         match self {
             HashTrieView { 
-                trie: HashTrie::Standard { map, next_id: _ }, 
+                trie: HashTrie::Standard { map, .. }, 
                 node: Some(node_value)
             } => {
                 if let Some(HashTrieNode::Branch { id }) = map.get(node_value) {
@@ -116,10 +140,10 @@ pub struct HashTrieViewMut<'a, K, V> {
     node: Option<(u32, K)>
 }
 
-impl<'a, K, V> TrieViewMut<'a, K, V> for HashTrieViewMut<'a, K, V> 
+impl<'a, K, V> TrieViewMut<K, V> for HashTrieViewMut<'a, K, V> 
     where K: Eq + Hash + Clone {
 
-    fn value(&'a mut self) -> Option<&'a mut V> {
+    fn value(&mut self) -> Option<&mut V> {
         match self {
             HashTrieViewMut {
                 trie: HashTrie::Trivial {
@@ -131,7 +155,7 @@ impl<'a, K, V> TrieViewMut<'a, K, V> for HashTrieViewMut<'a, K, V>
             },
 
             HashTrieViewMut {
-                trie: HashTrie::Standard { map, next_id: _ },
+                trie: HashTrie::Standard { map, .. },
                 node: Some(node_value)
             } => {
                 if let Some(HashTrieNode::Leaf { value }) = map.get_mut(node_value) {
@@ -150,7 +174,7 @@ impl<'a, K, V> TrieViewMut<'a, K, V> for HashTrieViewMut<'a, K, V>
         let mut node;
 
         if let HashTrieViewMut { 
-                trie: HashTrie::Standard { map, next_id: _ }, 
+                trie: HashTrie::Standard { map, .. }, 
                 node: Some(ref node_value)
             } = &mut self_alias {
 
@@ -160,7 +184,7 @@ impl<'a, K, V> TrieViewMut<'a, K, V> for HashTrieViewMut<'a, K, V>
                 return None;
             }
         } else if let HashTrieViewMut { 
-                trie: HashTrie::Standard { map: _, next_id: _ }, 
+                trie: HashTrie::Standard { .. }, 
                 node: None
             } = &mut self_alias {
 
@@ -192,7 +216,7 @@ impl<'a, K, V> TrieViewMut<'a, K, V> for HashTrieViewMut<'a, K, V>
                 *next_id += 1;
             }
         } else if let HashTrieViewMut { 
-                trie: HashTrie::Standard { map: _, next_id: _ }, 
+                trie: HashTrie::Standard { .. }, 
                 node: None
             } = &mut self_alias {
 

@@ -13,6 +13,7 @@ Pattern
 #define if ( $cond ) { $block }
 if $cond:
   $block
+#end
 ```
 
 Input

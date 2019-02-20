@@ -90,7 +90,7 @@ impl<'a, K, V> TrieView<'a, K, V> for HashTrieView<'a, K, V>
         }
     }
 
-    fn descend(&'a self, key: &K) -> Option<Self> {
+    fn descend(&'a self, key: K) -> Option<Self> {
         match self {
             HashTrieView { 
                 trie: HashTrie::Standard { map, next_id: _ }, 
@@ -145,64 +145,66 @@ impl<'a, K, V> TrieViewMut<'a, K, V> for HashTrieViewMut<'a, K, V>
         }
     }
 
-    fn descend(self, key: &K) -> Option<Self> {
-        match self {
-            HashTrieViewMut { 
-                trie: HashTrie::Standard { map, next_id }, 
+    fn descend(self, key: K) -> Option<Self> {
+        let mut self_alias = self;
+        let mut node;
+
+        if let HashTrieViewMut { 
+                trie: HashTrie::Standard { map, next_id: _ }, 
                 node: Some(ref node_value)
-            } => {
-                if let Some(HashTrieNode::Branch { id }) = map.get(&node_value) {
-                    Some(HashTrieViewMut { 
-                        trie: self.trie, 
-                        node: Some((*id, key.clone()))
-                    })
-                } else {
-                    None
-                }
-            },
+            } = &mut self_alias {
 
-            HashTrieViewMut { 
-                trie: HashTrie::Standard { map, next_id }, 
+            if let Some(HashTrieNode::Branch { id }) = map.get(&node_value) {
+                node = (*id, key);
+            } else {
+                return None;
+            }
+        } else if let HashTrieViewMut { 
+                trie: HashTrie::Standard { map: _, next_id: _ }, 
                 node: None
-            } => {
-                Some(HashTrieViewMut { 
-                    trie: self.trie, 
-                    node: Some((0, key.clone()))
-                })
-            },
+            } = &mut self_alias {
 
-            _ => None
+            node = (0, key);
+        } else {
+            return None;
         }
+
+        Some(HashTrieViewMut { 
+            trie: self_alias.trie, 
+            node: Some(node)
+        })
     }
 
     fn descend_or_add(self, key: K) -> Option<Self> {
-        match self {
-            HashTrieViewMut { 
-                trie: HashTrie::Standard { map, next_id: _ }, 
-                node: Some(ref node_value)
-            } => {
-                if let Some(HashTrieNode::Branch { id }) = map.get(&node_value) {
-                    Some(HashTrieViewMut { 
-                        trie: self.trie, 
-                        node: Some((*id, key))
-                    })
-                } else {
-                    None
-                }
-            },
+        let mut self_alias = self;
+        let mut node;
 
-            HashTrieViewMut { 
+        if let HashTrieViewMut { 
                 trie: HashTrie::Standard { map, next_id }, 
-                node: None
-            } => {
-                Some(HashTrieViewMut { 
-                    trie: self.trie, 
-                    node: Some((0, key))
-                })
-            },
+                node: Some(ref node_value)
+            } = &mut self_alias {
 
-            _ => None
+            if let Some(HashTrieNode::Branch { id }) = map.get(&node_value) {
+                node = (*id, key);
+            } else {
+                node = (*next_id, key);
+                map.insert(node_value.clone(), HashTrieNode::Branch { id: *next_id });
+                *next_id += 1;
+            }
+        } else if let HashTrieViewMut { 
+                trie: HashTrie::Standard { map: _, next_id: _ }, 
+                node: None
+            } = &mut self_alias {
+
+            node = (0, key);
+        } else {
+            return None;
         }
+
+        Some(HashTrieViewMut { 
+            trie: self_alias.trie, 
+            node: Some(node)
+        })
     }
 }
 

@@ -159,9 +159,9 @@ impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V>
         }
     }
 
-    fn descend(&self, key: K) -> Option<Self> {
+    fn descend(self, key: K) -> Result<Self, Self> {
         match self {
-            HashTrieView { 
+            HashTrieView {
                 trie: HashTrie::Standard { map, .. }, 
                 edge: None  //Indicates current node is root
             } => {
@@ -170,7 +170,7 @@ impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V>
                     edge_key: key
                 };
 
-                Some(HashTrieView { 
+                Ok(HashTrieView { 
                     trie: self.trie, 
                     edge: Some(next_edge)
                 })
@@ -178,7 +178,7 @@ impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V>
 
             HashTrieView { 
                 trie: HashTrie::Standard { map, .. }, 
-                edge: Some(last_edge)
+                edge: Some(ref last_edge)
             } => {
                 if let Some(HashTrieNode::Branch { id }) = map.get(last_edge) {
                     let next_edge = HashTrieEdge {
@@ -186,16 +186,16 @@ impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V>
                         edge_key: key.clone()
                     };
 
-                    Some(HashTrieView { 
+                    Ok(HashTrieView { 
                         trie: self.trie, 
                         edge: Some(next_edge)
                     })
                 } else {
-                    None
+                    Err(self)
                 }
             },
 
-            _ => None
+            _ => Err(self)
         }
     }
 }
@@ -222,6 +222,75 @@ impl<'a, K, V> HashTrieViewMut<'a, K, V>
             trie: hash_trie,
             edge: None  //Indicates that the current node is the root
         }
+    }
+}
+
+impl<'a, K, V> TrieView<K, V> for HashTrieViewMut<'a, K, V> 
+    where K: Eq + Hash + Clone {
+
+    fn value(&self) -> Option<&V> {
+        match self {
+            HashTrieViewMut {
+                trie: HashTrie::Trivial {
+                    value
+                },
+                edge: None  //Indicates current node is root
+            } => {
+                Some(value)
+            },
+
+            HashTrieViewMut {
+                trie: HashTrie::Standard { map, .. },
+                edge: Some(last_edge)
+            } => {
+                if let Some(HashTrieNode::Leaf { value }) = map.get(last_edge) {
+                    Some(value)
+                } else {
+                    None
+                }
+            },
+
+            _ => None
+        }
+    }
+
+    fn descend(self, key: K) -> Result<Self, Self> {
+        let next_edge;
+
+        match self {
+            HashTrieViewMut { 
+                trie: HashTrie::Standard { .. }, 
+                edge: None
+            } => {
+                next_edge = HashTrieEdge {
+                    prev_node: 0,   //Indicating root node
+                    edge_key: key
+                };
+            },
+
+            HashTrieViewMut { 
+                trie: HashTrie::Standard { map, .. }, 
+                edge: Some(ref last_edge)
+            } => {
+                if let Some(HashTrieNode::Branch { id }) = map.get(last_edge) {
+                    next_edge = HashTrieEdge {
+                        prev_node: *id,
+                        edge_key: key
+                    };
+                } else {
+                    return Err(self);
+                }
+            },
+
+            _ => {
+                return Err(self);
+            }
+        };
+
+        Ok(HashTrieViewMut { 
+            trie: self.trie, 
+            edge: Some(next_edge)
+        })
     }
 }
 
@@ -299,46 +368,6 @@ impl<'a, K, V> TrieViewMut<K, V> for HashTrieViewMut<'a, K, V>
         } else {
             false
         }
-    }
-
-    fn descend(self, key: K) -> Option<Self> {
-        let mut self_alias = self;
-        let next_edge;
-
-        match &mut self_alias {
-            HashTrieViewMut { 
-                trie: HashTrie::Standard { .. }, 
-                edge: None
-            } => {
-                next_edge = HashTrieEdge {
-                    prev_node: 0,   //Indicating root node
-                    edge_key: key
-                };
-            },
-
-            HashTrieViewMut { 
-                trie: HashTrie::Standard { map, next_id }, 
-                edge: Some(ref last_edge)
-            } => {
-                if let Some(HashTrieNode::Branch { id }) = map.get(&last_edge) {
-                    next_edge = HashTrieEdge {
-                        prev_node: *id,
-                        edge_key: key
-                    };
-                } else {
-                    return None;
-                }
-            },
-
-            _ => {
-                return None;
-            }
-        };
-
-        Some(HashTrieViewMut { 
-            trie: self_alias.trie, 
-            edge: Some(next_edge)
-        })
     }
 
     fn descend_or_add(self, key: K) -> Option<Self> {

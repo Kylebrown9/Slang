@@ -21,8 +21,8 @@ pub trait Trie<K, V>: Sized {
 
         for key in path {
             view = match view.descend(key) {
-                Some(view) => view,
-                None => { 
+                Ok(view) => view,
+                Err(_) => { 
                     return None;
                 }
             };
@@ -44,8 +44,8 @@ pub trait TrieView<K, V>: Sized {
 
     /// If this view is of a Branch with a correspond child,
     /// return a view of the child. 
-    /// Otherwise returns None.
-    fn descend(&self, key: K) -> Option<Self>;
+    /// Otherwise it returns self.
+    fn descend(self, key: K) -> Result<Self, Self>;
 }
 
 /// The TrieMut trait represents a mutable mapping from
@@ -89,7 +89,7 @@ pub trait TrieMut<K, V>: Trie<K, V> {
 /// TrieViewMut must never have a value and children,
 /// or allow a consumer to add a value or child to a node
 /// when it would violate this rule
-pub trait TrieViewMut<K, V>: Sized {
+pub trait TrieViewMut<K, V>: TrieView<K, V> {
 
     /// If this view is of a Leaf, returns a mutable reference to its value
     /// Otherwise returns None
@@ -104,11 +104,6 @@ pub trait TrieViewMut<K, V>: Sized {
     /// Otherwise (returns false)
     fn set_value(&mut self, new_value: V) -> bool;
 
-    /// If this view is of a Branch with a correspond child,
-    /// return a view of the child. 
-    /// Otherwise returns None.
-    fn descend(self, key: K) -> Option<Self>;
-    
     /// If this view is of a Branch with a correspond child,
     /// return a view of the child. 
     /// If this view is of a Branch without a corresponding child,

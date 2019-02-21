@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 
-use super::{ Trie, TrieMut, TrieView, TrieViewMut, IntoValue };
+use super::{ Trie, TrieMut, TrieView, TrieViewMut, TryIntoValue };
 
 /// A Trie/TrieMut implementor, that stores all nodes
 /// in a single HashMap
@@ -130,11 +130,11 @@ impl<'a, K, V> HashTrieView<'a, K, V>
     }
 }
 
-impl<'a, K, V> IntoValue for HashTrieView<'a, K, V>
+impl<'a, K, V> TryIntoValue for HashTrieView<'a, K, V>
     where K: Eq + Hash + Clone {
-    type Value = Option<&'a V>;
+    type Value = &'a V;
 
-    fn into_value(self) -> Self::Value {
+    fn try_into_value(self) -> Option<&'a V> {
         match self {
             HashTrieView {
                 trie: HashTrie::Trivial {
@@ -244,11 +244,11 @@ pub struct HashTrieViewMut<'a, K, V>
     edge: Option<HashTrieEdge<K>>
 }
 
-impl<'a, K, V> IntoValue for HashTrieViewMut<'a, K, V>
+impl<'a, K, V> TryIntoValue for HashTrieViewMut<'a, K, V>
     where K: Eq + Hash + Clone {
-    type Value = Option<&'a mut V>;
+    type Value = &'a mut V;
 
-    fn into_value(self) -> Self::Value {
+    fn try_into_value(self) -> Option<Self::Value> {
         match self {
             HashTrieViewMut {
                 trie: HashTrie::Trivial {
@@ -467,7 +467,7 @@ mod test {
 
         hash_trie.insert(keys_a.clone(), "A".to_string());
 
-        assert_eq!(hash_trie.get_view(keys_a).unwrap().value(), Some(&"A".to_string()));
+        assert_eq!(hash_trie.get(keys_a), Some(&"A".to_string()));
     }
 
     #[test]
@@ -490,8 +490,8 @@ mod test {
 
         hash_trie.insert(keys_b.clone(), "B".to_string());
 
-        assert_eq!(hash_trie.get_view(keys_a).unwrap().value(), Some(&"A".to_string()));
+        assert_eq!(hash_trie.get(keys_a), Some(&"A".to_string()));
 
-        assert_eq!(hash_trie.get_view(keys_b).unwrap().value(), Some(&"B".to_string()));
+        assert_eq!(hash_trie.get(keys_b), Some(&"B".to_string()));
     }
 }

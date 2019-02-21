@@ -31,10 +31,10 @@ pub trait Trie<K, V>: Sized {
         Some(view)
     }
 
-    fn get<I>(self, path: I) -> Option<<Self::View as IntoValue>::Value>
+    fn get<I>(self, path: I) -> Option<<Self::View as TryIntoValue>::Value>
         where
             I: IntoIterator<Item = K>,
-            Self::View: IntoValue {
+            Self::View: TryIntoValue {
         let mut view = self.as_view();
 
         for key in path {
@@ -46,14 +46,14 @@ pub trait Trie<K, V>: Sized {
             };
         }
 
-        Some(view.into_value())
+        view.try_into_value()
     }
 }
 
-pub trait IntoValue {
+pub trait TryIntoValue {
     type Value;
 
-    fn into_value(self) -> Self::Value;
+    fn try_into_value(self) -> Option<Self::Value>;
 }
 
 /// The TrieView trait represents a read-only view

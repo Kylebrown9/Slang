@@ -20,12 +20,7 @@ pub trait Trie<K, V>: Sized {
         let mut view = self.as_view();
 
         for key in path {
-            view = match view.descend(key) {
-                Ok(view) => view,
-                Err(_) => { 
-                    return None;
-                }
-            };
+            view = view.descend(key).ok()?;
         }
 
         Some(view)

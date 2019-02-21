@@ -162,7 +162,7 @@ impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V>
     fn descend(self, key: K) -> Result<Self, Self> {
         match self {
             HashTrieView {
-                trie: HashTrie::Standard { map, .. }, 
+                trie: HashTrie::Standard { .. }, 
                 edge: None  //Indicates current node is root
             } => {
                 let next_edge = HashTrieEdge {
@@ -387,9 +387,9 @@ impl<'a, K, V> TrieViewMut<K, V> for HashTrieViewMut<'a, K, V>
 
             HashTrieViewMut { 
                 trie: HashTrie::Standard { map, next_id }, 
-                edge: Some(ref last_edge)
+                edge: Some(last_edge)
             } => {
-                if let Some(HashTrieNode::Branch { id }) = map.get(&last_edge) {
+                if let Some(HashTrieNode::Branch { id }) = map.get(last_edge) {
                     next_edge = HashTrieEdge {
                         prev_node: *id,
                         edge_key: key

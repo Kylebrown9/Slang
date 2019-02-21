@@ -31,6 +31,7 @@ pub trait Trie<K, V>: Sized {
         Some(view)
     }
 
+    /// Gets the value for the specified node if it exists
     fn get<I>(self, path: I) -> Option<<Self::View as TryIntoValue>::Value>
         where
             I: IntoIterator<Item = K>,
@@ -50,9 +51,19 @@ pub trait Trie<K, V>: Sized {
     }
 }
 
+/// The `TryIntoValue` trait allows a view to be
+/// converted into the value that it holds
+/// 
+/// For example, and immutable view (`View<'a>`) can be turned
+/// into a `&V`, all without mentioning lifetimes.
+/// 
+/// This is a helper trait that is intended to work with `Trie::get`
 pub trait TryIntoValue {
+    /// The type of Value that the view will be turned into
     type Value;
 
+    /// Convert view into value if it contains the value,
+    /// otherwise return None
     fn try_into_value(self) -> Option<Self::Value>;
 }
 

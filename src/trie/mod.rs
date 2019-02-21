@@ -13,7 +13,7 @@ pub trait Trie<K, V>: Sized {
     fn as_view(self) -> Self::View;
     
     /// Gets the View for the specified node if it exists
-    fn get<T>(self, path: T) -> Option<Self::View>
+    fn get_view<T>(self, path: T) -> Option<Self::View>
         where
             T: IntoIterator<Item=K> {
 

@@ -405,7 +405,7 @@ mod test {
 
         hash_trie.insert(keys_a.clone(), "A".to_string());
 
-        assert_eq!(hash_trie.get(keys_a).unwrap().value(), Some(&"A".to_string()));
+        assert_eq!(hash_trie.get_view(keys_a).unwrap().value(), Some(&"A".to_string()));
     }
 
     #[test]
@@ -428,8 +428,8 @@ mod test {
 
         hash_trie.insert(keys_b.clone(), "B".to_string());
 
-        assert_eq!(hash_trie.get(keys_a).unwrap().value(), Some(&"A".to_string()));
+        assert_eq!(hash_trie.get_view(keys_a).unwrap().value(), Some(&"A".to_string()));
 
-        assert_eq!(hash_trie.get(keys_b).unwrap().value(), Some(&"B".to_string()));
+        assert_eq!(hash_trie.get_view(keys_b).unwrap().value(), Some(&"B".to_string()));
     }
 }

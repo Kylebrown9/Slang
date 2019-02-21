@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 
-use super::{ Trie, TrieMut, TrieView, TrieViewMut };
+use super::{ Trie, TrieMut, TrieView, TrieViewMut, IntoValue };
 
 /// A Trie/TrieMut implementor, that stores all nodes
 /// in a single HashMap
@@ -130,6 +130,37 @@ impl<'a, K, V> HashTrieView<'a, K, V>
     }
 }
 
+impl<'a, K, V> IntoValue for HashTrieView<'a, K, V>
+    where K: Eq + Hash + Clone {
+    type Value = Option<&'a V>;
+
+    fn into_value(self) -> Self::Value {
+        match self {
+            HashTrieView {
+                trie: HashTrie::Trivial {
+                    value
+                },
+                edge: None  //Indicates current node is root
+            } => {
+                Some(&value)
+            },
+
+            HashTrieView {
+                trie: HashTrie::Standard { map, .. },
+                edge: Some(ref last_edge)
+            } => {
+                if let Some(HashTrieNode::Leaf { value }) = map.get(last_edge) {
+                    Some(&value)
+                } else {
+                    None
+                }
+            },
+
+            _ => None
+        }
+    }
+}
+
 impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V> 
     where K: Eq + Hash + Clone {
 
@@ -211,6 +242,37 @@ pub struct HashTrieViewMut<'a, K, V>
     /// The Some edge leading to the current node,
     /// or None if the current node is the root
     edge: Option<HashTrieEdge<K>>
+}
+
+impl<'a, K, V> IntoValue for HashTrieViewMut<'a, K, V>
+    where K: Eq + Hash + Clone {
+    type Value = Option<&'a mut V>;
+
+    fn into_value(self) -> Self::Value {
+        match self {
+            HashTrieViewMut {
+                trie: HashTrie::Trivial {
+                    value
+                },
+                edge: None  //Indicates current node is root
+            } => {
+                Some(value)
+            },
+
+            HashTrieViewMut {
+                trie: HashTrie::Standard { map, .. },
+                edge: Some(ref last_edge)
+            } => {
+                if let Some(HashTrieNode::Leaf { value }) = map.get_mut(last_edge) {
+                    Some(value)
+                } else {
+                    None
+                }
+            },
+
+            _ => None
+        }
+    }
 }
 
 impl<'a, K, V> HashTrieViewMut<'a, K, V>

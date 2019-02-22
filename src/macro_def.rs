@@ -19,7 +19,7 @@ pub struct Macros {
 #[derive(Hash, Eq, PartialEq, Clone)]
 enum PatternItem {
     /// Constrains matches to include this exact token value
-    Token {
+    MatchToken {
         value: String
     },
 
@@ -28,7 +28,7 @@ enum PatternItem {
 
     /// Constrains matches to include an occurance of a previously
     /// parsed in token variable
-    MatchestTokenVar {
+    MatchTokenVar {
         index: u8
     },
 

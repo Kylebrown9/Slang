@@ -37,7 +37,7 @@ enum PatternItem {
 
     /// Constrains matches to include the specified block type
     /// and applies the inner pattern to the token sequence 
-    BlockVar {
+    BlockPattern {
         block_delim: BlockDelimiter,
         inner_pattern: Vec<PatternItem>
     }

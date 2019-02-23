@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use super::{ Trie, TrieMut, TrieView, TrieViewMut, HasView, HasViewMut };
+use super::key_pair::{ KeyPair, Pair, HalfBorrowed };
 
 /// A Trie/TrieMut implementor, that stores all nodes
 /// in a single HashMap
@@ -28,7 +29,7 @@ pub enum HashTrie<K, V>
 
 impl<K, V> HashTrie<K, V>
     where 
-        K: Hash + Eq + Clone {
+        K: Hash + Eq {
     
     /// Constructs an empty HashTrie
     pub fn new() -> Self {
@@ -46,14 +47,12 @@ pub type HashTrieMap<K, V> = HashMap<HashTrieEdge<K>, HashTrieNode<V>>;
 /// An edge uniquely identifies the node it points to,
 /// by indicating the node it is coming from and the key
 /// that is followed to get there
-#[derive(Hash, Eq, PartialEq, Clone)]
-pub struct HashTrieEdge<K>
-    where
-        K: Hash + Eq {
+pub type HashTrieEdge<K> = Pair<u32, K>;
 
-    prev_node: u32,
-    edge_key: K
-}
+/// An edge uniquely identifies the node it points to,
+/// by indicating the node it is coming from and the key
+/// that is followed to get there
+pub type HashTrieEdgeView<'a, K> = HalfBorrowed<'a, u32, K>;
 
 /// A node in the HashTrie
 pub enum HashTrieNode<V> {
@@ -74,7 +73,7 @@ pub enum HashTrieNode<V> {
 
 impl<'a, K: 'a, V: 'a> HasView<'a, K, V> for HashTrie<K, V>
     where 
-        K: Hash + Eq + Clone {
+        K: Hash + Eq {
     type View = HashTrieView<'a, K, V>;
 
     fn as_view(&'a self) -> Self::View {
@@ -84,7 +83,7 @@ impl<'a, K: 'a, V: 'a> HasView<'a, K, V> for HashTrie<K, V>
 
 impl<K, V> Trie<K, V> for HashTrie<K, V>
     where 
-        K: Hash + Eq + Clone {
+        K: Hash + Eq {
     
 }
 
@@ -114,7 +113,7 @@ pub struct HashTrieView<'a, K, V>
 
     /// The Some edge leading to the current node,
     /// or None if the current node is the root
-    edge: Option<HashTrieEdge<K>>
+    edge: Option<HashTrieEdgeView<'a, K>>
 }
 
 impl<'a, K, V> HashTrieView<'a, K, V>
@@ -130,7 +129,7 @@ impl<'a, K, V> HashTrieView<'a, K, V>
 }
 
 impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V> 
-    where K: Eq + Hash + Clone {
+    where K: Eq + Hash {
 
     fn value(&self) -> Option<&V> {
         match self {
@@ -147,7 +146,7 @@ impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V>
                 trie: HashTrie::Standard { map, .. },
                 edge: Some(last_edge)
             } => {
-                if let Some(HashTrieNode::Leaf { value }) = map.get(last_edge) {
+                if let Some(HashTrieNode::Leaf { value }) = map.get(last_edge as &KeyPair<u32, K>) {
                     Some(&value)
                 } else {
                     None
@@ -173,7 +172,7 @@ impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V>
                 trie: HashTrie::Standard { map, .. },
                 edge: Some(ref last_edge)
             } => {
-                if let Some(HashTrieNode::Leaf { value }) = map.get(last_edge) {
+                if let Some(HashTrieNode::Leaf { value }) = map.get(last_edge as &KeyPair<u32, K>) {
                     Some(&value)
                 } else {
                     None
@@ -184,16 +183,13 @@ impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V>
         }
     }
 
-    fn descend(&self, key: K) -> Option<Self> {
+    fn descend(&self, key: &K) -> Option<Self> {
         match self {
             HashTrieView { 
                 trie: HashTrie::Standard { map, .. }, 
                 edge: None  //Indicates current node is root
             } => {
-                let next_edge = HashTrieEdge {
-                    prev_node: 0,   //Set previous node to 0
-                    edge_key: key
-                };
+                let next_edge = HalfBorrowed(0, key); //Set previous node to 0
 
                 Some(HashTrieView { 
                     trie: self.trie, 
@@ -205,11 +201,8 @@ impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V>
                 trie: HashTrie::Standard { map, .. }, 
                 edge: Some(last_edge)
             } => {
-                if let Some(HashTrieNode::Branch { id }) = map.get(last_edge) {
-                    let next_edge = HashTrieEdge {
-                        prev_node: *id,
-                        edge_key: key.clone()
-                    };
+                if let Some(HashTrieNode::Branch { id }) = map.get(last_edge as &KeyPair<u32, K>) {
+                    let next_edge = HalfBorrowed(*id, key);
 
                     Some(HashTrieView { 
                         trie: self.trie, 
@@ -305,7 +298,10 @@ impl<'a, K, V> TrieViewMut<K, V> for HashTrieViewMut<'a, K, V>
         }
     }
     
-    fn set_value(&mut self, new_value: V) -> bool {
+    fn set_value(&mut self, new_value: V) -> bool
+        where
+            K: Clone {
+
         let make_trivial;
 
         match self {
@@ -322,7 +318,9 @@ impl<'a, K, V> TrieViewMut<K, V> for HashTrieViewMut<'a, K, V>
             } => {
                 match map.get_mut(last_edge) {
                     None => {
-                        map.insert(last_edge.clone(), HashTrieNode::Leaf { 
+                        let edge_clone = Pair(last_edge.0, last_edge.1.clone());
+
+                        map.insert(edge_clone, HashTrieNode::Leaf { 
                             value: new_value 
                         });
                         return true;
@@ -354,28 +352,22 @@ impl<'a, K, V> TrieViewMut<K, V> for HashTrieViewMut<'a, K, V>
 
     fn descend(self, key: K) -> Option<Self> {
         let mut self_alias = self;
-        let next_edge;
+        let last_node;
 
         match &mut self_alias {
             HashTrieViewMut { 
                 trie: HashTrie::Standard { .. }, 
                 edge: None
             } => {
-                next_edge = HashTrieEdge {
-                    prev_node: 0,   //Indicating root node
-                    edge_key: key
-                };
+                last_node = 0; //Indicating root node
             },
 
             HashTrieViewMut { 
                 trie: HashTrie::Standard { map, next_id }, 
                 edge: Some(ref last_edge)
             } => {
-                if let Some(HashTrieNode::Branch { id }) = map.get(&last_edge) {
-                    next_edge = HashTrieEdge {
-                        prev_node: *id,
-                        edge_key: key
-                    };
+                if let Some(HashTrieNode::Branch { id }) = map.get(last_edge as &KeyPair<u32, K>) {
+                    last_node = *id;
                 } else {
                     return None;
                 }
@@ -388,41 +380,34 @@ impl<'a, K, V> TrieViewMut<K, V> for HashTrieViewMut<'a, K, V>
 
         Some(HashTrieViewMut { 
             trie: self_alias.trie, 
-            edge: Some(next_edge)
+            edge: Some(Pair(last_node, key))
         })
     }
 
     fn descend_or_add(self, key: K) -> Option<Self> {
         let mut self_alias = self;
-        let mut next_edge;
+        let mut last_node;
 
         match &mut self_alias {
             HashTrieViewMut { 
                 trie: HashTrie::Standard { .. }, 
                 edge: None
             } => {
-                next_edge = HashTrieEdge {
-                    prev_node: 0,   //Indicating root node
-                    edge_key: key
-                };
+                last_node = 0; //Indicating root node
             },
 
             HashTrieViewMut { 
                 trie: HashTrie::Standard { map, next_id }, 
                 edge: Some(ref last_edge)
             } => {
-                if let Some(HashTrieNode::Branch { id }) = map.get(&last_edge) {
-                    next_edge = HashTrieEdge {
-                        prev_node: *id,
-                        edge_key: key
-                    };
+                if let Some(HashTrieNode::Branch { id }) = map.get(last_edge as &KeyPair<u32, K>) {
+                    last_node = *id;
                 } else {
-                    next_edge = HashTrieEdge {
-                        prev_node: *next_id,
-                        edge_key: key
-                    };
+                    last_node = *next_id;
                     
-                    map.insert(last_edge.clone(), HashTrieNode::Branch { id: *next_id });
+                    let edge_clone = Pair(last_edge.0, last_edge.1.clone());
+                    
+                    map.insert(edge_clone, HashTrieNode::Branch { id: *next_id });
 
                     *next_id += 1;  //Will currently panic when overflow occurs
                 }
@@ -435,7 +420,7 @@ impl<'a, K, V> TrieViewMut<K, V> for HashTrieViewMut<'a, K, V>
 
         Some(HashTrieViewMut { 
             trie: self_alias.trie, 
-            edge: Some(next_edge)
+            edge: Some(Pair(last_node, key))
         })
     }
 }
@@ -454,9 +439,11 @@ mod test {
             "A".to_string()
         ];
 
+        let keys_a_get = vec![ "A", "A", "A" ];
+
         hash_trie.insert(keys_a.clone(), "A".to_string());
 
-        assert_eq!(hash_trie.get(keys_a), Some(&"A".to_string()));
+        assert_eq!(hash_trie.get(keys_a_get), Some(&"A".to_string()));
     }
 
     #[test]

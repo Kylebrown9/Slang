@@ -1,4 +1,8 @@
+mod key_pair;
+
 pub mod hash;
+
+use std::borrow::Borrow;
 
 pub trait HasView<'a, K, V>: Trie<K, V> {
     type View: 'a + TrieView<K, V>;
@@ -12,15 +16,16 @@ pub trait HasView<'a, K, V>: Trie<K, V> {
 /// All Trie implementations must be prefix free.
 pub trait Trie<K, V>: Sized {
     /// Gets the View for the specified node if it exists
-    fn get_view<'a, T>(&'a self, path: T) -> Option<Self::View>
+    fn get_view<'a, I>(&'a self, path: I) -> Option<Self::View>
         where
-            T: IntoIterator<Item=K>,
+            I: IntoIterator,
+            I::Item: Borrow<K>,
             Self: HasView<'a, K, V> {
 
         let mut view = self.as_view();
 
         for key in path {
-            view = match view.descend(key) {
+            view = match view.descend(key.borrow()) {
                 Some(view) => view,
                 None => { 
                     return None;
@@ -34,7 +39,8 @@ pub trait Trie<K, V>: Sized {
     /// Gets the value for the specified node if it exists
     fn get<'a, I>(&'a self, path: I) -> Option<&'a V>
         where
-            I: IntoIterator<Item = K>,
+            I: IntoIterator<Item = &'a K>,
+            K: 'a,
             Self: HasView<'a, K, V> {
                 
         let mut view = self.as_view();
@@ -69,7 +75,7 @@ pub trait TrieView<K, V>: Sized {
     /// If this view is of a Branch with a correspond child,
     /// return a view of the child. 
     /// Otherwise returns None.
-    fn descend(&self, key: K) -> Option<Self>;
+    fn descend(&self, key: &K) -> Option<Self>;
 }
 
 pub trait HasViewMut<'a, K, V>: TrieMut<K, V> {

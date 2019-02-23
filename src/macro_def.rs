@@ -58,7 +58,7 @@ impl Macros {
     }
 
     pub fn expand_tokens(&self, input: &[Token], out_stream: &mut SimpleOutput) -> Result<()> {
-        let trie_root = self.contents.as_view();
+        //let trie_root = self.contents.as_view();
 
         let mut remaining = input;
 

@@ -1,21 +1,21 @@
 pub mod hash;
 
+pub trait HasView<'a, K, V>: Trie<K, V> {
+    type View: 'a + TrieView<K, V>;
+
+    fn as_view(&'a self) -> Self::View;
+}
+
 /// The Trie trait represents a read-only mapping from
 /// a sequence of key elements to a single value.
 /// This allows for get() map style behavior.
 /// All Trie implementations must be prefix free.
 pub trait Trie<K, V>: Sized {
-
-    /// The read-only View type for this Trie
-    type View: TrieView<K, V>;
-
-    /// Creates a View of this Trie
-    fn as_view(self) -> Self::View;
-    
     /// Gets the View for the specified node if it exists
-    fn get_view<T>(self, path: T) -> Option<Self::View>
+    fn get_view<'a, T>(&'a self, path: T) -> Option<Self::View>
         where
-            T: IntoIterator<Item=K> {
+            T: IntoIterator<Item=K>,
+            Self: HasView<'a, K, V> {
 
         let mut view = self.as_view();
 
@@ -32,10 +32,10 @@ pub trait Trie<K, V>: Sized {
     }
 
     /// Gets the value for the specified node if it exists
-    fn get<I>(self, path: I) -> Option<<Self::View as TryIntoValue>::Value>
+    fn get<'a, I>(&'a self, path: I) -> Option<&'a V>
         where
             I: IntoIterator<Item = K>,
-            Self::View: TryIntoValue {
+            Self: HasView<'a, K, V> {
         let mut view = self.as_view();
 
         for key in path {
@@ -47,24 +47,8 @@ pub trait Trie<K, V>: Sized {
             };
         }
 
-        view.try_into_value()
+        view.into_value()
     }
-}
-
-/// The `TryIntoValue` trait allows a view to be
-/// converted into the value that it holds
-/// 
-/// For example, and immutable view (`View<'a>`) can be turned
-/// into a `&V`, all without mentioning lifetimes.
-/// 
-/// This is a helper trait that is intended to work with `Trie::get`
-pub trait TryIntoValue {
-    /// The type of Value that the view will be turned into
-    type Value;
-
-    /// Convert view into value if it contains the value,
-    /// otherwise return None
-    fn try_into_value(self) -> Option<Self::Value>;
 }
 
 /// The TrieView trait represents a read-only view
@@ -77,10 +61,21 @@ pub trait TrieView<K, V>: Sized {
     /// Otherwise returns None
     fn value(&self) -> Option<&V>;
 
+    /// If this view is of a Leaf, returns a reference to its value
+    /// Otherwise returns None
+    fn into_value<'a>(self) -> Option<&'a V> where Self: 'a;
+
     /// If this view is of a Branch with a correspond child,
     /// return a view of the child. 
     /// Otherwise returns None.
     fn descend(&self, key: K) -> Option<Self>;
+}
+
+pub trait HasViewMut<'a, K, V>: TrieMut<K, V> {
+    type ViewMut: 'a + TrieViewMut<K, V>;
+
+    /// Creates a ViewMut of this Trie
+    fn as_view_mut(&'a mut self) -> Self::ViewMut;
 }
 
 /// The TrieMut trait represents a mutable mapping from
@@ -89,16 +84,11 @@ pub trait TrieView<K, V>: Sized {
 /// All TrieMut implementations must be prefix free.
 pub trait TrieMut<K, V>: Trie<K, V> {
 
-    /// The mutable view type for this TrieMut
-    type ViewMut: TrieViewMut<K, V>;
-
-    /// Creates a ViewMut of this Trie
-    fn as_view_mut(self) -> Self::ViewMut;
-
     /// Returns true if the insert succeeded
-    fn insert<T>(self, path: T, new_val: V) -> bool
+    fn insert<'a, T>(&'a mut self, path: T, new_val: V) -> bool
         where 
-            T: IntoIterator<Item=K> {
+            T: IntoIterator<Item=K>,
+            Self: HasViewMut<'a, K, V> {
 
         let mut view = self.as_view_mut();
 
@@ -128,7 +118,11 @@ pub trait TrieViewMut<K, V>: Sized {
 
     /// If this view is of a Leaf, returns a mutable reference to its value
     /// Otherwise returns None
-    fn value(&mut self) -> Option<&mut V>;
+    fn value_mut(&mut self) -> Option<&mut V>;
+
+    /// If this view is of a Leaf, returns a mutable reference to its value
+    /// Otherwise returns None
+    fn into_value_mut<'a>(self) -> Option<&'a mut V> where Self: 'a;
     
     /// If this view is of a Leaf, 
     /// overwrite its value with the new_value. (returns true)

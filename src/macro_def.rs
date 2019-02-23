@@ -4,8 +4,8 @@ use std::collections::{ LinkedList };
 use crate::io_helpers::{ SimpleOutput };
 use crate::tokenizer::{ Token };
 
-use crate::trie::{ Trie };
-use crate::trie::hash::{ HashTrie, HashTrieView };
+use crate::trie::{ Trie, HasView };
+use crate::trie::hash::{ HashTrie };
 
 /// The data type representing accumulated macros
 /// It associates a sequence of pattern items with a template
@@ -93,9 +93,7 @@ impl Macros {
     /// Performs macro expansion on a slice of tokens and outputs
     /// the expanded values using the out_stream
     pub fn expand_tokens(&self, input: &[Token], out_stream: &mut SimpleOutput) -> Result<()> {
-        let mut base_view: HashTrieView<PatternItem, Template> = self.contents.as_view();
-
-        let mut var_continuations: Vec<HashTrieView<PatternItem, Template>> = Vec::new();
+        //let trie_root = self.contents.as_view();
 
         let mut remaining = input;
 

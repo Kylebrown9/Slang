@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::borrow::Borrow;
 
-use super::{ Trie, TrieMut, TrieView, TrieViewMut, HasView, HasViewMut };
 use super::key_pair::{ KeyPair, Pair, HalfBorrowed };
 
 /// A Trie/TrieMut implementor, that stores all nodes
@@ -27,20 +27,6 @@ pub enum HashTrie<K, V>
     }   
 }
 
-impl<K, V> HashTrie<K, V>
-    where 
-        K: Hash + Eq {
-    
-    /// Constructs an empty HashTrie
-    pub fn new() -> Self {
-        HashTrie::Standard {
-            map: HashMap::new(),
-            //1 is the next_id of empty HashTries, because 0 is reserved for the root
-            next_id: 1  
-        }
-    }
-}
-
 /// Represents a mapping from Edges to Nodes
 pub type HashTrieMap<K, V> = HashMap<HashTrieEdge<K>, HashTrieNode<V>>;
 
@@ -52,7 +38,7 @@ pub type HashTrieEdge<K> = Pair<u32, K>;
 /// An edge uniquely identifies the node it points to,
 /// by indicating the node it is coming from and the key
 /// that is followed to get there
-pub type HashTrieEdgeView<'a, K> = HalfBorrowed<'a, u32, K>;
+pub type HashTrieEdgeView<'b, K> = HalfBorrowed<'b, u32, K>;
 
 /// A node in the HashTrie
 pub enum HashTrieNode<V> {
@@ -71,40 +57,95 @@ pub enum HashTrieNode<V> {
     }
 }
 
-impl<'a, K: 'a, V: 'a> HasView<'a, K, V> for HashTrie<K, V>
+impl<K, V> HashTrie<K, V>
     where 
-        K: Hash + Eq {
-    type View = HashTrieView<'a, K, V>;
+        K: Hash + Eq + Clone {
 
-    fn as_view(&'a self) -> Self::View {
+    pub fn new() -> Self {
+        HashTrie::Standard {
+            map: HashMap::new(),
+            //1 is the next_id of empty HashTries, because 0 is reserved for the root
+            next_id: 1  
+        }
+    }
+
+    pub fn as_view(&self) -> HashTrieView<'_, '_, K, V> {
         HashTrieView::new(self)
     }
-}
 
-impl<K, V> Trie<K, V> for HashTrie<K, V>
-    where 
-        K: Hash + Eq {
-    
-}
+    /// Gets the View for the specified node if it exists
+    pub fn get_view<'c, I>(&self, path: I) -> Option<HashTrieView<'_, 'c, K, V>>
+        where
+            I: IntoIterator<Item = &'c K>,
+            K: 'c {
 
-impl<'a, K: 'a, V: 'a> HasViewMut<'a, K, V> for HashTrie<K, V>
-    where 
-        K: Hash + Eq + Clone {
-    type ViewMut = HashTrieViewMut<'a, K, V>;
+        let mut iter = path.into_iter();
 
-    fn as_view_mut(&'a mut self) -> Self::ViewMut {
+        let base_view: HashTrieView<'_, '_, K, V> = self.as_view();
+        let mut view:  HashTrieView<'_, 'c, K, V>;
+
+        if let Some(key) = iter.next() {
+            if let Some(next_view) = base_view.descend(key) {
+                view = next_view;
+            } else {
+                return None;
+            }
+        } else {
+            return None;
+        }
+
+        while let Some(key) = iter.next() {
+            if let Some(next_view) = view.descend(key) {
+                view = next_view;
+            } else {
+                return None;
+            }
+        }
+
+        Some(view)
+    }
+
+    /// Gets the value for the specified node if it exists
+    pub fn get<'c, I>(&self, path: I) -> Option<&'_ V>
+        where
+            I: IntoIterator<Item = &'c K>,
+            K: 'c {
+
+        match self.get_view(path) {
+            Some(view) => view.value(),
+            None => None
+        }
+    }
+
+    pub fn as_view_mut(&mut self) -> HashTrieViewMut<'_, K, V> {
         HashTrieViewMut::new(self)
     }
-}
 
-impl<K, V> TrieMut<K, V> for HashTrie<K, V>
-    where 
-        K: Hash + Eq + Clone {
+    /// Returns true if the insert succeeded
+    pub fn insert<'a, T>(&mut self, path: T, new_val: V) -> bool
+        where 
+            T: IntoIterator<Item=K> {
 
+        let mut view = self.as_view_mut();
+
+        for key in path {
+            let maybe_next = view.descend_or_add(key);
+
+            if let Some(next_view) = maybe_next {
+                view = next_view;
+            } else {
+                return false;
+            }
+        }
+
+        let success = view.set_value(new_val);
+
+        success
+    }
 }
 
 /// A read-only view of a HashTrie
-pub struct HashTrieView<'a, K, V>
+pub struct HashTrieView<'a, 'b, K, V>
     where
         K: Hash + Eq {
 
@@ -113,10 +154,10 @@ pub struct HashTrieView<'a, K, V>
 
     /// The Some edge leading to the current node,
     /// or None if the current node is the root
-    edge: Option<HashTrieEdgeView<'a, K>>
+    edge: Option<HashTrieEdgeView<'b, K>>
 }
 
-impl<'a, K, V> HashTrieView<'a, K, V>
+impl<'a, K, V> HashTrieView<'a, 'a, K, V>
     where
         K: Hash + Eq {
 
@@ -128,10 +169,15 @@ impl<'a, K, V> HashTrieView<'a, K, V>
     }
 }
 
-impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V> 
-    where K: Eq + Hash {
+/// The 'a lifetime represents the HashTrie this is a view of
+/// The 'b lifetime represents the lifetime of the key reference
+///  used to create this view
+/// The K and V parameters correspond to the signature of the HashTrie
+impl<'a, 'b, K, V> HashTrieView<'a, 'b, K, V>
+    where
+        K: Hash + Eq {
 
-    fn value(&self) -> Option<&V> {
+    fn value(&self) -> Option<&'a V> {
         match self {
             HashTrieView {
                 trie: HashTrie::Trivial {
@@ -157,39 +203,13 @@ impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V>
         }
     }
 
-    fn into_value<'b>(self) -> Option<&'b V> where Self: 'b {
-        match self {
-            HashTrieView {
-                trie: HashTrie::Trivial {
-                    value
-                },
-                edge: None  //Indicates current node is root
-            } => {
-                Some(&value)
-            },
-
-            HashTrieView {
-                trie: HashTrie::Standard { map, .. },
-                edge: Some(ref last_edge)
-            } => {
-                if let Some(HashTrieNode::Leaf { value }) = map.get(last_edge as &KeyPair<u32, K>) {
-                    Some(&value)
-                } else {
-                    None
-                }
-            },
-
-            _ => None
-        }
-    }
-
-    fn descend(&self, key: &K) -> Option<Self> {
+    fn descend<'c>(&self, key: &'c K) -> Option<HashTrieView<'a, 'c, K, V>> {
         match self {
             HashTrieView { 
                 trie: HashTrie::Standard { map, .. }, 
                 edge: None  //Indicates current node is root
             } => {
-                let next_edge = HalfBorrowed(0, key); //Set previous node to 0
+                let next_edge = HalfBorrowed<'c, u32, K>(0, key); //Set previous node to 0
 
                 Some(HashTrieView { 
                     trie: self.trie, 
@@ -202,7 +222,7 @@ impl<'a, K, V> TrieView<K, V> for HashTrieView<'a, K, V>
                 edge: Some(last_edge)
             } => {
                 if let Some(HashTrieNode::Branch { id }) = map.get(last_edge as &KeyPair<u32, K>) {
-                    let next_edge = HalfBorrowed(*id, key);
+                    let next_edge = HalfBorrowed<'c, u32, K>(*id, key);
 
                     Some(HashTrieView { 
                         trie: self.trie, 
@@ -241,10 +261,6 @@ impl<'a, K, V> HashTrieViewMut<'a, K, V>
             edge: None  //Indicates that the current node is the root
         }
     }
-}
-
-impl<'a, K, V> TrieViewMut<K, V> for HashTrieViewMut<'a, K, V> 
-    where K: Eq + Hash + Clone {
 
     fn value_mut(&mut self) -> Option<&mut V> {
         match self {
@@ -260,32 +276,6 @@ impl<'a, K, V> TrieViewMut<K, V> for HashTrieViewMut<'a, K, V>
             HashTrieViewMut {
                 trie: HashTrie::Standard { map, .. },
                 edge: Some(last_edge)
-            } => {
-                if let Some(HashTrieNode::Leaf { value }) = map.get_mut(last_edge) {
-                    Some(value)
-                } else {
-                    None
-                }
-            },
-
-            _ => None
-        }
-    }
-
-    fn into_value_mut<'b>(self) -> Option<&'b mut V> where Self: 'b {
-        match self {
-            HashTrieViewMut {
-                trie: HashTrie::Trivial {
-                    value
-                },
-                edge: None  //Indicates current node is root
-            } => {
-                Some(value)
-            },
-
-            HashTrieViewMut {
-                trie: HashTrie::Standard { map, .. },
-                edge: Some(ref last_edge)
             } => {
                 if let Some(HashTrieNode::Leaf { value }) = map.get_mut(last_edge) {
                     Some(value)
@@ -350,11 +340,10 @@ impl<'a, K, V> TrieViewMut<K, V> for HashTrieViewMut<'a, K, V>
         }
     }
 
-    fn descend(self, key: K) -> Option<Self> {
-        let mut self_alias = self;
+    fn descend(self, key: K) -> Option<HashTrieViewMut<'a, K, V>> {
         let last_node;
 
-        match &mut self_alias {
+        match &mut self {
             HashTrieViewMut { 
                 trie: HashTrie::Standard { .. }, 
                 edge: None
@@ -379,7 +368,7 @@ impl<'a, K, V> TrieViewMut<K, V> for HashTrieViewMut<'a, K, V>
         };
 
         Some(HashTrieViewMut { 
-            trie: self_alias.trie, 
+            trie: self.trie, 
             edge: Some(Pair(last_node, key))
         })
     }

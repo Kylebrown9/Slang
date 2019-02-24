@@ -3,7 +3,6 @@ use std::io::{ Result };
 use crate::io_helpers::{ SimpleOutput };
 use crate::tokenizer::{ Token };
 
-use crate::trie::{ Trie, HasView };
 use crate::trie::hash::{ HashTrie };
 
 pub struct Macros {

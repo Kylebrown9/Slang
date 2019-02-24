@@ -1,13 +1,13 @@
 mod trie;
 mod macro_def;
 mod tokenizer;
-use tokenizer::Tokenizer;
+use crate::tokenizer::Tokenizer;
 
 mod io_helpers;
-use io_helpers::{ simplify_output, file_to_string, stdio_to_string };
+use crate::io_helpers::{ simplify_output, file_to_string, stdio_to_string };
 
 mod builder;
-use builder::build_macros;
+use crate::builder::build_macros;
 
 use std::fs::File;
 use std::io::{ Write, Result, Error, ErrorKind, stdout };

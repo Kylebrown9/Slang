@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::borrow::Borrow;
 
 use super::key_pair::{ KeyPair, Pair, HalfBorrowed };
 
@@ -209,7 +208,7 @@ impl<'a, 'b, K, V> HashTrieView<'a, 'b, K, V>
                 trie: HashTrie::Standard { map, .. }, 
                 edge: None  //Indicates current node is root
             } => {
-                let next_edge = HalfBorrowed<'c, u32, K>(0, key); //Set previous node to 0
+                let next_edge = HalfBorrowed(0, key); //Set previous node to 0
 
                 Some(HashTrieView { 
                     trie: self.trie, 
@@ -222,7 +221,7 @@ impl<'a, 'b, K, V> HashTrieView<'a, 'b, K, V>
                 edge: Some(last_edge)
             } => {
                 if let Some(HashTrieNode::Branch { id }) = map.get(last_edge as &KeyPair<u32, K>) {
-                    let next_edge = HalfBorrowed<'c, u32, K>(*id, key);
+                    let next_edge = HalfBorrowed(*id, key);
 
                     Some(HashTrieView { 
                         trie: self.trie, 
@@ -340,7 +339,7 @@ impl<'a, K, V> HashTrieViewMut<'a, K, V>
         }
     }
 
-    fn descend(self, key: K) -> Option<HashTrieViewMut<'a, K, V>> {
+    fn descend(mut self, key: K) -> Option<HashTrieViewMut<'a, K, V>> {
         let last_node;
 
         match &mut self {
@@ -373,33 +372,40 @@ impl<'a, K, V> HashTrieViewMut<'a, K, V>
         })
     }
 
-    fn descend_or_add(self, key: K) -> Option<Self> {
-        let mut self_alias = self;
-        let mut last_node;
+    fn descend_or_add(mut self, key: K) -> Option<Self> {
+        let last_node;
+        let trie_ref;
 
-        match &mut self_alias {
+        match self {
             HashTrieViewMut { 
-                trie: HashTrie::Standard { .. }, 
+                trie,
                 edge: None
             } => {
                 last_node = 0; //Indicating root node
+                trie_ref = trie;
             },
 
             HashTrieViewMut { 
-                trie: HashTrie::Standard { map, next_id }, 
-                edge: Some(ref last_edge)
+                trie, 
+                edge: Some(last_edge)
             } => {
-                if let Some(HashTrieNode::Branch { id }) = map.get(last_edge as &KeyPair<u32, K>) {
-                    last_node = *id;
-                } else {
-                    last_node = *next_id;
-                    
-                    let edge_clone = Pair(last_edge.0, last_edge.1.clone());
-                    
-                    map.insert(edge_clone, HashTrieNode::Branch { id: *next_id });
+                if let HashTrie::Standard { map, next_id } = trie {
+                    if let Some(HashTrieNode::Branch { id }) = map.get(&last_edge as &KeyPair<u32, K>) {
+                        last_node = *id;
+                    } else {
+                        last_node = *next_id;
+                        
+                        let edge_clone = Pair(last_edge.0, last_edge.1);
+                        
+                        map.insert(edge_clone, HashTrieNode::Branch { id: *next_id });
 
-                    *next_id += 1;  //Will currently panic when overflow occurs
+                        *next_id += 1;  //Will currently panic when overflow occurs
+                    }
+                } else {
+                    return None;
                 }
+
+                trie_ref = trie;
             },
 
             _ => {
@@ -408,7 +414,7 @@ impl<'a, K, V> HashTrieViewMut<'a, K, V>
         };
 
         Some(HashTrieViewMut { 
-            trie: self_alias.trie, 
+            trie: trie_ref, 
             edge: Some(Pair(last_node, key))
         })
     }
@@ -422,15 +428,15 @@ mod test {
     fn insert_get() {
         let mut hash_trie = HashTrie::new();
 
-        let keys_a = vec![
+        let keys_a_insert = vec![
             "A".to_string(), 
             "A".to_string(), 
             "A".to_string()
         ];
 
-        let keys_a_get = vec![ "A", "A", "A" ];
+        let keys_a_get: Vec<&String> = keys_a_insert.iter().collect();
 
-        hash_trie.insert(keys_a.clone(), "A".to_string());
+        hash_trie.insert(keys_a_insert.clone(), "A".to_string());
 
         assert_eq!(hash_trie.get(keys_a_get), Some(&"A".to_string()));
     }
@@ -439,24 +445,28 @@ mod test {
     fn insert_insert_get() {
         let mut hash_trie = HashTrie::new();
 
-        let keys_a = vec![
+        let keys_a_insert = vec![
             "A".to_string(), 
             "A".to_string(), 
             "A".to_string()
         ];
 
-        hash_trie.insert(keys_a.clone(), "A".to_string());
+        let keys_a_get: Vec<&String> = keys_a_insert.iter().collect();
 
-        let keys_b = vec![
+        hash_trie.insert(keys_a_insert.clone(), "A".to_string());
+
+        let keys_b_insert = vec![
             "B".to_string(), 
             "B".to_string(), 
             "B".to_string()
         ];
 
-        hash_trie.insert(keys_b.clone(), "B".to_string());
+        let keys_b_get: Vec<&String> = keys_b_insert.iter().collect();
 
-        assert_eq!(hash_trie.get(keys_a), Some(&"A".to_string()));
+        hash_trie.insert(keys_b_insert.clone(), "B".to_string());
 
-        assert_eq!(hash_trie.get(keys_b), Some(&"B".to_string()));
+        assert_eq!(hash_trie.get(keys_a_get), Some(&"A".to_string()));
+
+        assert_eq!(hash_trie.get(keys_b_get), Some(&"B".to_string()));
     }
 }

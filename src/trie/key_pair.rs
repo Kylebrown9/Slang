@@ -44,27 +44,27 @@ impl<'a, 'b, A, B> KeyPair<A, B> for HalfBorrowed<'b, A, B>
     }
 }
 
-impl<'a, A, B> Borrow<KeyPair<A, B> + 'a> for Pair<A, B>
+impl<'a, A, B> Borrow<dyn KeyPair<A, B> + 'a> for Pair<A, B>
 where
     A: Eq + Hash + 'a,
     B: Eq + Hash + 'a,
 {
-    fn borrow(&self) -> &(KeyPair<A, B> + 'a) {
+    fn borrow(&self) -> &(dyn KeyPair<A, B> + 'a) {
         self
     }
 }
 
-impl<'a, A: Hash, B: Hash> Hash for (KeyPair<A, B> + 'a) {
+impl<'a, A: Hash, B: Hash> Hash for (dyn KeyPair<A, B> + 'a) {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.a().hash(state);
         self.b().hash(state);
     }
 }
 
-impl<'a, A: Eq, B: Eq> PartialEq for (KeyPair<A, B> + 'a) {
+impl<'a, A: PartialEq, B: PartialEq> PartialEq for (dyn KeyPair<A, B> + 'a) {
     fn eq(&self, other: &Self) -> bool {
         self.a() == other.a() && self.b() == other.b()
     }
 }
 
-impl<'a, A: Eq, B: Eq> Eq for (KeyPair<A, B> + 'a) {}
+impl<'a, A: Eq, B: Eq> Eq for (dyn KeyPair<A, B> + 'a) {}

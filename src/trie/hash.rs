@@ -81,27 +81,11 @@ impl<K, V> HashTrie<K, V>
         let mut iter = path.into_iter();
 
         let base_view: HashTrieView<'_, '_, K, V> = self.as_view();
-        let mut view:  HashTrieView<'_, 'c, K, V>;
+        let first_view: HashTrieView<'_, 'c, K, V> = base_view.descend(iter.next()?)?;
 
-        if let Some(key) = iter.next() {
-            if let Some(next_view) = base_view.descend(key) {
-                view = next_view;
-            } else {
-                return None;
-            }
-        } else {
-            return None;
-        }
-
-        while let Some(key) = iter.next() {
-            if let Some(next_view) = view.descend(key) {
-                view = next_view;
-            } else {
-                return None;
-            }
-        }
-
-        Some(view)
+        iter.fold(Some(first_view), move |view, key| {
+            view?.descend(key)
+        })
     }
 
     /// Gets the value for the specified node if it exists
@@ -110,10 +94,7 @@ impl<K, V> HashTrie<K, V>
             I: IntoIterator<Item = &'c K>,
             K: 'c {
 
-        match self.get_view(path) {
-            Some(view) => view.value(),
-            None => None
-        }
+        self.get_view(path)?.value()
     }
 
     pub fn as_view_mut(&mut self) -> HashTrieViewMut<'_, K, V> {
@@ -137,9 +118,7 @@ impl<K, V> HashTrie<K, V>
             }
         }
 
-        let success = view.set_value(new_val);
-
-        success
+        view.set_value(new_val)
     }
 }
 
@@ -205,7 +184,7 @@ impl<'a, 'b, K, V> HashTrieView<'a, 'b, K, V>
     fn descend<'c>(&self, key: &'c K) -> Option<HashTrieView<'a, 'c, K, V>> {
         match self {
             HashTrieView { 
-                trie: HashTrie::Standard { map, .. }, 
+                trie: HashTrie::Standard { .. }, 
                 edge: None  //Indicates current node is root
             } => {
                 let next_edge = HalfBorrowed(0, key); //Set previous node to 0
@@ -287,52 +266,42 @@ impl<'a, K, V> HashTrieViewMut<'a, K, V>
         }
     }
     
-    fn set_value(self, new_value: V) -> bool {
+    fn set_value(mut self, new_value: V) -> bool {
         match self {
             HashTrieViewMut { 
-                trie,
-                edge: None
+                trie: HashTrie::Standard { map, .. },
+                ref mut edge
             } => {
-                if let HashTrie::Standard { map, .. } = trie {
-                    if map.is_empty() {
-                        *trie = HashTrie::Trivial { value: new_value };
+                match edge.take() {
+                    Some(last_edge) => {
+                        match map.get_mut(&last_edge) {
+                            None => {
+                                let edge_clone = Pair(last_edge.0, last_edge.1);
+
+                                map.insert(edge_clone, HashTrieNode::Leaf { 
+                                    value: new_value 
+                                });
+
+                                true
+                            },
+
+                            Some(HashTrieNode::Leaf { value }) => {
+                                *value = new_value;
+                                true
+                            },
+
+                            _ => {
+                                false
+                            }
+                        }
+                    },
+                    
+                    None => if map.is_empty() {
+                        *self.trie = HashTrie::Trivial { value: new_value };
                         true
                     } else {
                         false
                     }
-                } else {
-                    false
-                }
-            },
-
-            HashTrieViewMut { 
-                trie, 
-                edge: Some(last_edge)
-            } => {
-                if let HashTrie::Standard { map, .. } = trie {
-
-                    match map.get_mut(&last_edge as &KeyPair<u32, K>) {
-                        None => {
-                            let edge_clone = Pair(last_edge.0, last_edge.1);
-
-                            map.insert(edge_clone, HashTrieNode::Leaf { 
-                                value: new_value 
-                            });
-
-                            true
-                        },
-
-                        Some(HashTrieNode::Leaf { value }) => {
-                            *value = new_value;
-                            true
-                        },
-
-                        _ => {
-                            false
-                        }
-                    }
-                } else {
-                    false
                 }
             },
 

@@ -60,6 +60,7 @@ impl<K, V> HashTrie<K, V>
     where 
         K: Hash + Eq {
 
+    /// Creates an empty HashTrie
     pub fn new() -> Self {
         HashTrie::Standard {
             map: HashMap::new(),
@@ -68,15 +69,16 @@ impl<K, V> HashTrie<K, V>
         }
     }
 
+    /// Creates a read only view of this HashTrie
     pub fn as_view(&self) -> HashTrieView<'_, '_, K, V> {
         HashTrieView::new(self)
     }
 
-    /// Gets the View for the specified node if it exists
+    /// Gets the view for the specified node if it exists
     pub fn get_view<'c, I>(&self, path: I) -> Option<HashTrieView<'_, 'c, K, V>>
         where
             I: IntoIterator<Item = &'c K>,
-            K: 'c {
+            I::Item: 'c {
 
         let mut iter = path.into_iter();
 
@@ -97,10 +99,13 @@ impl<K, V> HashTrie<K, V>
         self.get_view(path)?.value()
     }
 
+    /// Creates a mutable view of this HashTrie
     pub fn as_view_mut(&mut self) -> HashTrieViewMut<'_, K, V> {
         HashTrieViewMut::new(self)
     }
 
+    /// Inserts the new value into the HashTrie at
+    /// The location specified by the path
     /// Returns true if the insert succeeded
     pub fn insert<'a, T>(&mut self, path: T, new_val: V) -> bool
         where 
@@ -139,6 +144,7 @@ impl<'a, K, V> HashTrieView<'a, 'a, K, V>
     where
         K: Hash + Eq {
 
+    /// Creates a view of a HashTrie using a reference to it
     fn new(hash_trie: &'a HashTrie<K,V>) -> Self {
         HashTrieView {
             trie: hash_trie,
@@ -155,6 +161,8 @@ impl<'a, 'b, K, V> HashTrieView<'a, 'b, K, V>
     where
         K: Hash + Eq {
 
+    /// Returns the value stored at the current HashTrie location,
+    /// if it has one
     fn value(&self) -> Option<&'a V> {
         match self {
             HashTrieView {
@@ -181,6 +189,7 @@ impl<'a, 'b, K, V> HashTrieView<'a, 'b, K, V>
         }
     }
 
+    /// Creates a view of the corresponding child if there is one
     fn descend<'c>(&self, key: &'c K) -> Option<HashTrieView<'a, 'c, K, V>> {
         match self {
             HashTrieView { 

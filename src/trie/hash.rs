@@ -77,14 +77,15 @@ impl<K, V> HashTrie<K, V>
         where
             I: IntoIterator<Item = &'c K>,
             K: 'c {
-        let base_view: HashTrieView<'_, '_, K, V> = self.as_view();
 
-        path.into_iter()
-            .fold(None, move |view, key| {
-                Some(view.as_ref()
-                        .unwrap_or(&base_view)
-                        .descend(key)?)
-            })
+        let mut iter = path.into_iter();
+
+        let base_view: HashTrieView<'_, '_, K, V> = self.as_view();
+        let first_view: HashTrieView<'_, 'c, K, V> = base_view.descend(iter.next()?)?;
+
+        iter.fold(Some(first_view), move |view, key| {
+            view?.descend(key)
+        })
     }
 
     /// Gets the value for the specified node if it exists
@@ -92,6 +93,7 @@ impl<K, V> HashTrie<K, V>
         where
             I: IntoIterator<Item = &'c K>,
             K: 'c {
+
         self.get_view(path)?.value()
     }
 
@@ -293,6 +295,7 @@ impl<'a, K, V> HashTrieViewMut<'a, K, V>
                             }
                         }
                     },
+                    
                     None => if map.is_empty() {
                         *self.trie = HashTrie::Trivial { value: new_value };
                         true
@@ -301,6 +304,7 @@ impl<'a, K, V> HashTrieViewMut<'a, K, V>
                     }
                 }
             },
+
             _ => {
                 false
             }

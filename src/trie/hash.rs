@@ -58,7 +58,7 @@ pub enum HashTrieNode<V> {
 
 impl<K, V> HashTrie<K, V>
     where 
-        K: Hash + Eq + Clone {
+        K: Hash + Eq {
 
     pub fn new() -> Self {
         HashTrie::Standard {
@@ -287,55 +287,58 @@ impl<'a, K, V> HashTrieViewMut<'a, K, V>
         }
     }
     
-    fn set_value(&mut self, new_value: V) -> bool
-        where
-            K: Clone {
-
-        let make_trivial;
-
+    fn set_value(self, new_value: V) -> bool {
         match self {
-            HashTrieViewMut {
-                trie: HashTrie::Standard { map, .. },
-                edge: None  //Indicates current node is root
+            HashTrieViewMut { 
+                trie,
+                edge: None
             } => {
-                make_trivial = map.is_empty();
+                if let HashTrie::Standard { map, .. } = trie {
+                    if map.is_empty() {
+                        *trie = HashTrie::Trivial { value: new_value };
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
             },
 
-            HashTrieViewMut {
-                trie: HashTrie::Standard { map, .. },
+            HashTrieViewMut { 
+                trie, 
                 edge: Some(last_edge)
             } => {
-                match map.get_mut(last_edge) {
-                    None => {
-                        let edge_clone = Pair(last_edge.0, last_edge.1.clone());
+                if let HashTrie::Standard { map, .. } = trie {
 
-                        map.insert(edge_clone, HashTrieNode::Leaf { 
-                            value: new_value 
-                        });
-                        return true;
-                    },
+                    match map.get_mut(&last_edge as &KeyPair<u32, K>) {
+                        None => {
+                            let edge_clone = Pair(last_edge.0, last_edge.1);
 
-                    Some(HashTrieNode::Leaf { value }) => {
-                        *value = new_value;
-                        return true;
+                            map.insert(edge_clone, HashTrieNode::Leaf { 
+                                value: new_value 
+                            });
+
+                            true
+                        },
+
+                        Some(HashTrieNode::Leaf { value }) => {
+                            *value = new_value;
+                            true
+                        },
+
+                        _ => {
+                            false
+                        }
                     }
-
-                    _ => {
-                        return false;
-                    }
+                } else {
+                    false
                 }
             },
 
             _ => {
-                return false;
+                false
             }
-        };
-
-        if make_trivial {
-            *self.trie = HashTrie::Trivial { value: new_value };
-            true
-        } else {
-            false
         }
     }
 
@@ -351,7 +354,7 @@ impl<'a, K, V> HashTrieViewMut<'a, K, V>
             },
 
             HashTrieViewMut { 
-                trie: HashTrie::Standard { map, next_id }, 
+                trie: HashTrie::Standard { map, .. }, 
                 edge: Some(ref last_edge)
             } => {
                 if let Some(HashTrieNode::Branch { id }) = map.get(last_edge as &KeyPair<u32, K>) {
@@ -372,7 +375,7 @@ impl<'a, K, V> HashTrieViewMut<'a, K, V>
         })
     }
 
-    fn descend_or_add(mut self, key: K) -> Option<Self> {
+    fn descend_or_add(self, key: K) -> Option<Self> {
         let last_node;
         let trie_ref;
 

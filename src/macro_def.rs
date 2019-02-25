@@ -4,7 +4,6 @@ use std::collections::{ LinkedList };
 use crate::io_helpers::{ SimpleOutput };
 use crate::tokenizer::{ Token };
 
-use crate::trie::{ Trie, HasView };
 use crate::trie::hash::{ HashTrie };
 
 /// The data type representing accumulated macros
